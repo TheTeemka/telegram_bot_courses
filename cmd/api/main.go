@@ -25,7 +25,7 @@ func main() {
 	cfg := config.LoadConfig(*stage)
 
 	courcesRepo := repo.NewCourceRepo(cfg.CourcesAPIURL, 10*time.Minute)
-	bot := telegram.NewTelegramBot(cfg.TelegramBotToken, courcesRepo)
+	bot := telegram.NewTelegramBot(cfg.TelegramBotToken, cfg.AdminID, courcesRepo)
 
 	slog.Info("Telegram Bot Started...", "BOT Name", bot.BotAPI.Self.FirstName, "stage", cfg.Stage, "cources url", cfg.CourcesAPIURL, "semester name", courcesRepo.SemesterName)
 

@@ -21,12 +21,12 @@ func (bot *TelegramBot) beatify(name string, sections []Section) string {
 			builder.WriteRune('\n')
 		}
 		if section.Size >= section.Cap {
-			builder.WriteString(fmt.Sprintf("    ~%-7s \\(%d/%d\\)\n~", section.SectionName, section.Size, section.Cap))
+			builder.WriteString(fmt.Sprintf("  ~%-7s \\(%d/%d\\)\n~", section.SectionName, section.Size, section.Cap))
 		} else {
-			builder.WriteString(fmt.Sprintf("    %-7s \\(%d/%d\\)\n", section.SectionName, section.Size, section.Cap))
+			builder.WriteString(fmt.Sprintf("  %-7s \\(%d/%d\\)\n", section.SectionName, section.Size, section.Cap))
 		}
 	}
-	builder.WriteString(bot.CourcesRepo.LastTimeParsed.Format("\n_ \\*Last Updated on:  15:04:05 02\\.01\\.2006 _"))
+	builder.WriteString(bot.CourcesRepo.LastTimeParsed.Format("\n_\\Last Updated on:  15:04:05 02\\.01\\.2006 _"))
 
 	return builder.String()
 }

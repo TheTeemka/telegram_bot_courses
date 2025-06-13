@@ -31,7 +31,6 @@ func (bot *TelegramBot) HandleCourceCode(updateMsg *tapi.Message) {
 	}
 
 }
-
 func (b *TelegramBot) HandleCommand(commandMsg *tapi.Message) {
 	cmd := commandMsg.Command()
 	chatID := commandMsg.Chat.ID
@@ -40,15 +39,17 @@ func (b *TelegramBot) HandleCommand(commandMsg *tapi.Message) {
 	var msg tapi.MessageConfig
 	switch commandMsg.Command() {
 	case "start":
-		msg = tapi.NewMessage(chatID,
-			"Welcome to the Cource Bot!\n Bot provides insights about capacity and enrolled students number of classes in "+b.CourcesRepo.SemesterName)
+		msg = tapi.NewMessage(chatID, b.welcomeText)
 	default:
-		msg = tapi.NewMessage(chatID, fmt.Sprintf("invalid command(/%s)", cmd))
+		msg = tapi.NewMessage(chatID, fmt.Sprintf("⚠️ Invalid command \\(/%s\\)", cmd))
 	}
 
+	msg.ParseMode = "MarkdownV2"
 	_, err := b.BotAPI.Send(msg)
 	if err != nil {
-		slog.Error("Failed to send start message", "error", err, "chat_id", chatID)
+		slog.Error("Failed to send command response",
+			"command", cmd,
+			"error", err,
+			"chat_id", chatID)
 	}
-
 }
