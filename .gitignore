@@ -1,5 +1,6 @@
 .env*
 .DS_Store
-!.env.example
-
+.idea
 ala.xls
+
+!.env.example

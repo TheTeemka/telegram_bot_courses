@@ -29,7 +29,6 @@ func main() {
 
 	slog.Info("Telegram Bot Started...", "BOT Name", bot.BotAPI.Self.FirstName, "stage", cfg.Stage, "cources url", cfg.CourcesAPIURL, "semester name", courcesRepo.SemesterName)
 
-	go courcesRepo.Watch()
 	bot.Start()
 }
 

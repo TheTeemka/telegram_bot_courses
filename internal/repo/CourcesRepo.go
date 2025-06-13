@@ -65,6 +65,13 @@ func (r *CourceRepo) Parse() error {
 }
 
 func (r *CourceRepo) GetCourse(name string) ([]courses.Section, bool) {
+	if time.Since(r.LastTimeParsed) > 10*time.Minute {
+		err := r.Parse()
+		if err != nil {
+			slog.Error("Failed to parse courses", "error", err)
+		}
+	}
+
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
 
