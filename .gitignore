@@ -1,6 +1,6 @@
 .env*
 .DS_Store
 .idea
-ala.xls
+example.xls
 
 !.env.example

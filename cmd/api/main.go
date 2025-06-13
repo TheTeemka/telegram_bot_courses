@@ -1,10 +1,13 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"log/slog"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
 	"time"
 
 	"github.com/TheTeemka/telegram_bot_cources/internal/config"
@@ -27,9 +30,25 @@ func main() {
 	courcesRepo := repo.NewCourceRepo(cfg.CourcesAPIURL, 10*time.Minute)
 	bot := telegram.NewTelegramBot(cfg.TelegramBotToken, cfg.AdminID, courcesRepo)
 
-	slog.Info("Telegram Bot Started...", "BOT Name", bot.BotAPI.Self.FirstName, "stage", cfg.Stage, "cources url", cfg.CourcesAPIURL, "semester name", courcesRepo.SemesterName)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	bot.Start()
+	// Handle graceful shutdown
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM, syscall.SIGPIPE)
+
+	go func() {
+		sig := <-sigCh
+		slog.Info("Received shutdown signal", "signal", sig)
+		cancel()
+	}()
+
+	slog.Info("Telegram Bot Started...",
+		"BOT Name", bot.BotAPI.Self.FirstName,
+		"stage", cfg.Stage,
+		"cources url", cfg.CourcesAPIURL,
+		"semester name", courcesRepo.SemesterName)
+	bot.Start(ctx)
 }
 
 func setSlog(stage string) {

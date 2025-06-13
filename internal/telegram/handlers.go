@@ -7,13 +7,29 @@ import (
 	tapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-func (bot *TelegramBot) HandleCourceCode(updateMsg *tapi.Message) {
-	courceName := Standartize(updateMsg.Text)
-	sections, exists := bot.CourcesRepo.GetCourse(courceName)
-	slog.Debug("Received cource code", "courceName", courceName, "exists", exists)
+func (bot *TelegramBot) HandleUpdate(update tapi.Update) {
+	if update.Message == nil {
+		return
+	}
+
+	if update.Message.From.ID != bot.AdminID {
+		return
+	}
+
+	if update.Message.IsCommand() {
+		bot.HandleCommand(update.Message)
+	} else {
+		bot.HandleCourseCode(update.Message)
+	}
+}
+
+func (bot *TelegramBot) HandleCourseCode(updateMsg *tapi.Message) {
+	courseName := Standartize(updateMsg.Text)
+	sections, exists := bot.CourcesRepo.GetCourse(courseName)
+	slog.Debug("Received course code", "courseName", courseName, "exists", exists)
 
 	if !exists {
-		msg := tapi.NewMessage(updateMsg.Chat.ID, fmt.Sprintf("Cource '%s' not found", courceName))
+		msg := tapi.NewMessage(updateMsg.Chat.ID, fmt.Sprintf("Cource '%s' not found", courseName))
 		_, err := bot.BotAPI.Send(msg)
 		if err != nil {
 			slog.Error("Failed to send message", "error", err)
@@ -22,7 +38,7 @@ func (bot *TelegramBot) HandleCourceCode(updateMsg *tapi.Message) {
 	}
 
 	msg := tapi.NewMessage(updateMsg.Chat.ID,
-		bot.beatify(courceName, sections))
+		bot.beatify(courseName, sections))
 	msg.ParseMode = "MarkdownV2"
 
 	_, err := bot.BotAPI.Send(msg)
@@ -31,7 +47,7 @@ func (bot *TelegramBot) HandleCourceCode(updateMsg *tapi.Message) {
 	}
 
 }
-func (b *TelegramBot) HandleCommand(commandMsg *tapi.Message) {
+func (bot *TelegramBot) HandleCommand(commandMsg *tapi.Message) {
 	cmd := commandMsg.Command()
 	chatID := commandMsg.Chat.ID
 	slog.Debug("Received command", "command", cmd)
@@ -39,13 +55,13 @@ func (b *TelegramBot) HandleCommand(commandMsg *tapi.Message) {
 	var msg tapi.MessageConfig
 	switch commandMsg.Command() {
 	case "start":
-		msg = tapi.NewMessage(chatID, b.welcomeText)
+		msg = tapi.NewMessage(chatID, bot.welcomeText)
 	default:
 		msg = tapi.NewMessage(chatID, fmt.Sprintf("⚠️ Invalid command \\(/%s\\)", cmd))
 	}
 
 	msg.ParseMode = "MarkdownV2"
-	_, err := b.BotAPI.Send(msg)
+	_, err := bot.BotAPI.Send(msg)
 	if err != nil {
 		slog.Error("Failed to send command response",
 			"command", cmd,

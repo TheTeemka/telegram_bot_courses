@@ -16,7 +16,11 @@ type Config struct {
 
 // envStage = {"dev", "prod"}
 func LoadConfig(envStage string) *Config {
-	godotenv.Load(".env." + envStage)
+	err := godotenv.Load(".env." + envStage)
+	if err != nil {
+		panic("Error loading .env file: " + err.Error())
+	}
+
 	cfg := &Config{
 		Stage:            envStage,
 		CourcesAPIURL:    os.Getenv("COURCES_API_URL"),

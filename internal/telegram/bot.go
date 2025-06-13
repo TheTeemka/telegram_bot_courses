@@ -1,9 +1,11 @@
 package telegram
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
+	"sync"
 
 	"github.com/TheTeemka/telegram_bot_cources/internal/courses"
 	"github.com/TheTeemka/telegram_bot_cources/internal/repo"
@@ -45,33 +47,37 @@ func NewTelegramBot(token string, adminID int64, courcesRepo *repo.CourceRepo) *
 	}
 }
 
-func (bot *TelegramBot) Start() {
+func (bot *TelegramBot) Start(ctx context.Context) {
 	updateConfig := tapi.NewUpdate(0)
 	updateConfig.Timeout = 69
 	updateChan := bot.BotAPI.GetUpdatesChan(updateConfig)
 
 	const workerNum = 5
+
+	var wg sync.WaitGroup
+	wg.Add(workerNum)
 	for range workerNum {
-		go bot.Worker(updateChan)
+		go func() {
+			defer wg.Done()
+			bot.Worker(ctx, updateChan)
+		}()
 	}
 
-	select {}
+	wg.Wait()
+	slog.Info("Telegram Bot Gracefully shut down")
 }
 
-func (bot *TelegramBot) Worker(updateChan tapi.UpdatesChannel) {
-	for update := range updateChan {
-		if update.Message == nil {
-			continue
-		}
-
-		if update.Message.From.ID != bot.AdminID {
+func (bot *TelegramBot) Worker(ctx context.Context, updateChan tapi.UpdatesChannel) {
+	for {
+		select {
+		case <-ctx.Done():
 			return
-		}
-
-		if update.Message.IsCommand() {
-			bot.HandleCommand(update.Message)
-		} else {
-			bot.HandleCourceCode(update.Message)
+		case update, ok := <-updateChan:
+			if !ok {
+				slog.Info("Update channel closed")
+				return
+			}
+			bot.HandleUpdate(update)
 		}
 	}
 }
