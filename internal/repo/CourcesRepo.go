@@ -10,16 +10,20 @@ import (
 )
 
 type CourceRepo struct {
-	cources        map[string][]courses.Section
+	CourcesAPIURL string
+	SemesterName  string
+
+	Cources        map[string][]courses.Section
 	LastTimeParsed time.Time
 	mutex          sync.RWMutex
 	ticker         *time.Ticker
 }
 
-func NewCourceRepo(duration time.Duration) *CourceRepo {
+func NewCourceRepo(courcesAPIURL string, duration time.Duration) *CourceRepo {
 	r := &CourceRepo{
-		cources: map[string][]courses.Section{},
-		ticker:  time.NewTicker(duration),
+		CourcesAPIURL: courcesAPIURL,
+		Cources:       map[string][]courses.Section{},
+		ticker:        time.NewTicker(duration),
 	}
 
 	err := r.Parse()
@@ -48,21 +52,22 @@ func (r *CourceRepo) Parse() error {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
-	crs, err := courses.GetCources()
+	semesterName, crs, err := courses.GetCources(r.CourcesAPIURL)
 	if err != nil {
 		return err
 	}
 
-	r.cources = crs
+	r.Cources = crs
 	r.LastTimeParsed = time.Now()
+	r.SemesterName = semesterName
 	slog.Info("Courses parsed successfully")
 	return nil
 }
 
-func (r *CourceRepo) Get(name string) ([]courses.Section, bool) {
+func (r *CourceRepo) GetCourse(name string) ([]courses.Section, bool) {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
 
-	sections, exists := r.cources[name]
+	sections, exists := r.Cources[name]
 	return sections, exists
 }

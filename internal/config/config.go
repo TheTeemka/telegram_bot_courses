@@ -3,15 +3,21 @@ package config
 import (
 	"os"
 
-	_ "github.com/joho/godotenv/autoload"
+	"github.com/joho/godotenv"
 )
 
 type Config struct {
+	Stage            string
 	TelegramBotToken string
+	CourcesAPIURL    string
 }
 
-func LoadConfig() *Config {
+// envStage = {"dev", "prod"}
+func LoadConfig(envStage string) *Config {
+	godotenv.Load(".env." + envStage)
 	cfg := &Config{
+		Stage:            envStage,
+		CourcesAPIURL:    os.Getenv("COURCES_API_URL"),
 		TelegramBotToken: os.Getenv("TELEGRAM_BOT_TOKEN"),
 	}
 

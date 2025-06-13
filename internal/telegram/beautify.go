@@ -5,14 +5,12 @@ import (
 	"log/slog"
 	"slices"
 	"strings"
-	"time"
 )
 
-func beatify(name string, sections []Section, t time.Time) string {
+func (bot *TelegramBot) beatify(name string, sections []Section) string {
 	builder := strings.Builder{}
 
-	builder.WriteString(name)
-	builder.WriteString(":\n")
+	builder.WriteString(fmt.Sprintf("%s: %s\n", Standartize(name), Standartize(bot.CourcesRepo.SemesterName)))
 
 	sections = sortSections(sections)
 
@@ -28,7 +26,7 @@ func beatify(name string, sections []Section, t time.Time) string {
 			builder.WriteString(fmt.Sprintf("    %-7s \\(%d/%d\\)\n", section.SectionName, section.Size, section.Cap))
 		}
 	}
-	builder.WriteString(t.Format("\n_ \\*Last Updated on:  15:04:05 02\\.01\\.2006 _"))
+	builder.WriteString(bot.CourcesRepo.LastTimeParsed.Format("\n_ \\*Last Updated on:  15:04:05 02\\.01\\.2006 _"))
 
 	return builder.String()
 }

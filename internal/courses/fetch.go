@@ -2,28 +2,35 @@ package courses
 
 import (
 	"bytes"
+	"fmt"
 	"io"
+	"net/http"
 	"os"
 )
 
 func fetch(url string) ([]byte, error) {
-	// resp, err := http.Get(url)
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// if resp.StatusCode != http.StatusOK {
-	// 	return nil, fmt.Errorf("Bad response status: %s", resp.Status)
-	// }
-	// defer resp.Body.Close()
-
-	f, err := os.Open("ala.xls")
-	if err != nil {
-		return nil, err
-	}
-
 	buf := new(bytes.Buffer)
-	io.Copy(buf, f)
-	// io.Copy(buf, resp.Body)
+
+	if url != "" {
+		resp, err := http.Get(url)
+		if err != nil {
+			panic(err)
+		}
+		if resp.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("Bad response status: %s", resp.Status)
+		}
+		defer resp.Body.Close()
+
+		io.Copy(buf, resp.Body)
+	} else {
+		f, err := os.Open("example.xls")
+		if err != nil {
+			return nil, err
+		}
+		defer f.Close()
+
+		io.Copy(buf, f)
+	}
 
 	return buf.Bytes(), nil
 }

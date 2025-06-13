@@ -15,27 +15,31 @@ type Section struct {
 	Cap         int
 }
 
-func GetCources() (map[string][]Section, error) {
-	url := "https://registrar.nu.edu.kz/registrar_downloads/json?method=printDocument&name=xls_school_schedule_by_term&termid=804"
+func GetCources(url string) (string, map[string][]Section, error) {
 	b, err := fetch(url)
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
 
 	return parse(bytes.NewReader(b))
 }
 
-func parse(file io.ReadSeeker) (map[string][]Section, error) {
+func parse(file io.ReadSeeker) (string, map[string][]Section, error) {
 	wb, err := xls.OpenReader(file)
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
 
 	sheet, err := wb.GetSheet(0)
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
 	rows := sheet.GetRows()
+
+	semesterName, err := rows[0].GetCol(0)
+	if err != nil {
+		return "", nil, err
+	}
 
 	mp := make(map[string]bool)
 	cources := make(map[string][]Section)
@@ -85,7 +89,7 @@ func parse(file io.ReadSeeker) (map[string][]Section, error) {
 		mp[name+section] = true
 	}
 
-	return cources, nil
+	return semesterName.GetString(), cources, nil
 }
 
 func GetString(s structure.CellData, err error) (string, error) {

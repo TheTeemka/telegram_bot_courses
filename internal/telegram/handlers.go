@@ -9,7 +9,9 @@ import (
 
 func (bot *TelegramBot) HandleCourceCode(updateMsg *tapi.Message) {
 	courceName := Standartize(updateMsg.Text)
-	sections, exists := bot.CourcesRepo.Get(courceName)
+	sections, exists := bot.CourcesRepo.GetCourse(courceName)
+	slog.Debug("Received cource code", "courceName", courceName, "exists", exists)
+
 	if !exists {
 		msg := tapi.NewMessage(updateMsg.Chat.ID, fmt.Sprintf("Cource '%s' not found", courceName))
 		_, err := bot.BotAPI.Send(msg)
@@ -20,7 +22,7 @@ func (bot *TelegramBot) HandleCourceCode(updateMsg *tapi.Message) {
 	}
 
 	msg := tapi.NewMessage(updateMsg.Chat.ID,
-		beatify(courceName, sections, bot.CourcesRepo.LastTimeParsed))
+		bot.beatify(courceName, sections))
 	msg.ParseMode = "MarkdownV2"
 
 	_, err := bot.BotAPI.Send(msg)
