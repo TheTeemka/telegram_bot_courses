@@ -40,7 +40,8 @@ func (b *TelegramBot) HandleCommand(commandMsg *tapi.Message) {
 	var msg tapi.MessageConfig
 	switch commandMsg.Command() {
 	case "start":
-		msg = tapi.NewMessage(chatID, "Welcome to the Cource Bot!\n")
+		msg = tapi.NewMessage(chatID,
+			"Welcome to the Cource Bot!\n Bot provides insights about capacity and enrolled students number of classes in "+b.CourcesRepo.SemesterName)
 	default:
 		msg = tapi.NewMessage(chatID, fmt.Sprintf("invalid command(/%s)", cmd))
 	}
