@@ -1,4 +1,4 @@
-package courses
+package repositories
 
 import (
 	"bytes"

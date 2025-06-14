@@ -1,18 +1,18 @@
-package telegram
+package handlers
 
 import (
 	"fmt"
-	"log/slog"
-	"slices"
 	"strings"
+
+	"github.com/TheTeemka/telegram_bot_cources/internal/models"
 )
 
-func (bot *TelegramBot) beatify(name string, sections []Section) string {
+func (h *MessageHandler) beatify(name string, sections []models.Section) string {
 	builder := strings.Builder{}
 
-	builder.WriteString(fmt.Sprintf("%s: %s\n", Standartize(name), Standartize(bot.CoursesRepo.SemesterName)))
+	builder.WriteString(fmt.Sprintf("%s: %s\n", Standartize(name), Standartize(h.CoursesRepo.SemesterName)))
 
-	sections = sortSections(sections)
+	sections = models.SortSections(sections)
 
 	var s string
 	for _, section := range sections {
@@ -26,29 +26,9 @@ func (bot *TelegramBot) beatify(name string, sections []Section) string {
 			builder.WriteString(fmt.Sprintf("  %-7s \\(%d/%d\\)\n", section.SectionName, section.Size, section.Cap))
 		}
 	}
-	builder.WriteString(bot.CoursesRepo.LastTimeParsed.Format("\n_\\Last Updated on:  15:04:05 02\\.01\\.2006 _"))
+	builder.WriteString(h.CoursesRepo.LastTimeParsed.Format("\n_\\Last Updated on:  15:04:05 02\\.01\\.2006 _"))
 
 	return builder.String()
-}
-
-func sortSections(sections []Section) []Section {
-	slices.SortFunc(sections, func(a, b Section) int {
-		atrim, btrim := trimNumbersFromPrefix(a.SectionName), trimNumbersFromPrefix(b.SectionName)
-		if atrim == btrim {
-			an, bn := getPrefixNumbers(a.SectionName), getPrefixNumbers(b.SectionName)
-			if an < bn {
-				return -1
-			} else if an > bn {
-				return 1
-			} else {
-				slog.Error("Sections have the same name and prefix numbers", "sectionA", a.SectionName, "sectionB", b.SectionName)
-			}
-			return 0
-		}
-
-		return strings.Compare(atrim, btrim)
-	})
-	return sections
 }
 
 func trimNumbersFromPrefix(s string) string {

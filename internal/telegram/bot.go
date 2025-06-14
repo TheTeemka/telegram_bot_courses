@@ -2,23 +2,18 @@ package telegram
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"os"
 	"sync"
 
-	"github.com/TheTeemka/telegram_bot_cources/internal/courses"
+	"github.com/TheTeemka/telegram_bot_cources/internal/handlers"
 	"github.com/TheTeemka/telegram_bot_cources/internal/repositories"
 	tapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-type Section = courses.Section
 type TelegramBot struct {
-	BotAPI      *tapi.BotAPI
-	CoursesRepo *repositories.CourseRepository
-	AdminID     int64
-
-	welcomeText string
+	BotAPI *tapi.BotAPI
+	*handlers.MessageHandler
 }
 
 func NewTelegramBot(token string, adminID int64, coursesRepo *repositories.CourseRepository) *TelegramBot {
@@ -28,22 +23,9 @@ func NewTelegramBot(token string, adminID int64, coursesRepo *repositories.Cours
 		os.Exit(1)
 	}
 
-	welcomeText := fmt.Sprintf(
-		"*Welcome to the Course Bot\\.* 🎓\n\n"+
-			"I provide real\\-time insights about class enrollments for *%s*\n\n"+
-			"Simply send me a course code \\(e\\.g\\. *CSCI 151*\\) to get:\n"+
-			"• Current enrollment numbers\n"+
-			"• Available seats\n"+
-			"• Section details\n\n"+
-			"_Updates every 10 minutes_",
-		coursesRepo.SemesterName)
-
 	return &TelegramBot{
-		BotAPI:      bot,
-		CoursesRepo: coursesRepo,
-		AdminID:     adminID,
-
-		welcomeText: welcomeText,
+		BotAPI:         bot,
+		MessageHandler: handlers.NewMessageHandler(adminID, coursesRepo),
 	}
 }
 
@@ -64,7 +46,7 @@ func (bot *TelegramBot) Start(ctx context.Context) {
 	}
 
 	wg.Wait()
-	slog.Info("Telegram Bot Gracefully shut down")
+
 }
 
 func (bot *TelegramBot) Worker(ctx context.Context, updateChan tapi.UpdatesChannel) {
@@ -77,7 +59,12 @@ func (bot *TelegramBot) Worker(ctx context.Context, updateChan tapi.UpdatesChann
 				slog.Info("Update channel closed")
 				return
 			}
-			bot.HandleUpdate(update)
+			msg := bot.HandleUpdate(update)
+			_, err := bot.BotAPI.Send(msg)
+			if err != nil {
+				slog.Error("Failed to send message", "error", err, "message", msg)
+				continue
+			}
 		}
 	}
 }

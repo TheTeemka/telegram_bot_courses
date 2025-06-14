@@ -6,14 +6,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/TheTeemka/telegram_bot_cources/internal/courses"
+	"github.com/TheTeemka/telegram_bot_cources/internal/models"
 )
 
 type CourseRepository struct {
 	CoursesAPIURL string
 	SemesterName  string
 
-	Courses        map[string][]courses.Section
+	Courses        map[string][]models.Section
 	LastTimeParsed time.Time
 	mutex          sync.RWMutex
 	ticker         *time.Ticker
@@ -22,7 +22,7 @@ type CourseRepository struct {
 func NewCourseRepo(coursesAPIURL string, duration time.Duration) *CourseRepository {
 	r := &CourseRepository{
 		CoursesAPIURL: coursesAPIURL,
-		Courses:       map[string][]courses.Section{},
+		Courses:       map[string][]models.Section{},
 		ticker:        time.NewTicker(duration),
 	}
 
@@ -52,7 +52,7 @@ func (r *CourseRepository) Parse() error {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
-	semesterName, crs, err := courses.GetCourses(r.CoursesAPIURL)
+	semesterName, crs, err := GetCourses(r.CoursesAPIURL)
 	if err != nil {
 		return err
 	}
@@ -64,7 +64,7 @@ func (r *CourseRepository) Parse() error {
 	return nil
 }
 
-func (r *CourseRepository) GetCourse(name string) ([]courses.Section, bool) {
+func (r *CourseRepository) GetCourse(name string) ([]models.Section, bool) {
 	if time.Since(r.LastTimeParsed) > 10*time.Minute {
 		err := r.Parse()
 		if err != nil {

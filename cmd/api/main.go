@@ -42,5 +42,8 @@ func main() {
 		"stage", stage,
 		"cources url", cfg.APIConfig.CourseURL,
 		"semester name", courcesRepo.SemesterName)
+
 	bot.Start(ctx)
+
+	slog.Info("Telegram Bot Gracefully shut down")
 }

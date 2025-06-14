@@ -1,30 +1,25 @@
-package courses
+package repositories
 
 import (
 	"bytes"
 	"io"
 	"strconv"
 
+	"github.com/TheTeemka/telegram_bot_cources/internal/models"
 	"github.com/shakinm/xlsReader/xls"
 	"github.com/shakinm/xlsReader/xls/structure"
 )
 
-type Section struct {
-	SectionName string
-	Size        int
-	Cap         int
-}
-
-func GetCourses(url string) (string, map[string][]Section, error) {
+func GetCourses(url string) (string, map[string][]models.Section, error) {
 	b, err := fetch(url)
 	if err != nil {
 		return "", nil, err
 	}
 
-	return parse(bytes.NewReader(b))
+	return parseXLS(bytes.NewReader(b))
 }
 
-func parse(file io.ReadSeeker) (string, map[string][]Section, error) {
+func parseXLS(file io.ReadSeeker) (string, map[string][]models.Section, error) {
 	wb, err := xls.OpenReader(file)
 	if err != nil {
 		return "", nil, err
@@ -42,7 +37,7 @@ func parse(file io.ReadSeeker) (string, map[string][]Section, error) {
 	}
 
 	mp := make(map[string]bool)
-	courses := make(map[string][]Section)
+	courses := make(map[string][]models.Section)
 
 	for _, row := range rows {
 		name, err := GetString(row.GetCol(2))
@@ -81,7 +76,7 @@ func parse(file io.ReadSeeker) (string, map[string][]Section, error) {
 		if err != nil {
 			continue
 		}
-		courses[name] = append(courses[name], Section{
+		courses[name] = append(courses[name], models.Section{
 			SectionName: section,
 			Size:        enNum,
 			Cap:         enCap,
