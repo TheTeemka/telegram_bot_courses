@@ -1,42 +1,37 @@
 package config
 
 import (
-	"os"
-	"strconv"
-
+	"github.com/ilyakaznacheev/cleanenv"
 	"github.com/joho/godotenv"
 )
 
 type Config struct {
-	Stage            string
-	TelegramBotToken string
-	CourcesAPIURL    string
-	AdminID          int64
+	BotConfig
+	APIConfig
+}
+
+type BotConfig struct {
+	Token     string `env:"TELEGRAM_BOT_TOKEN" env-required:"true"`
+	AdminID   int64  `env:"TELEGRAM_ADMIN_ID" env-required:"true"`
+	WorkerNum int    `env:"TELEGRAM_WORKER_NUM" env-default:"4"`
+}
+
+type APIConfig struct {
+	CourseURL string `env:"COURCES_API_URL"`
 }
 
 // envStage = {"dev", "prod"}
 func LoadConfig(envStage string) *Config {
 	err := godotenv.Load(".env." + envStage)
 	if err != nil {
-		panic("Error loading .env file: " + err.Error())
+		panic("Failed to load .env file: " + err.Error())
 	}
 
-	cfg := &Config{
-		Stage:            envStage,
-		CourcesAPIURL:    os.Getenv("COURCES_API_URL"),
-		TelegramBotToken: os.Getenv("TELEGRAM_BOT_TOKEN"),
-	}
-
-	if cfg.TelegramBotToken == "" {
-		panic("TELEGRAM_BOT_TOKEN environment variable not set")
-	}
-
-	adminIDstr := os.Getenv("ADMIN_ID")
-	adminIDint, err := strconv.ParseInt(adminIDstr, 10, 64)
+	var cfg Config
+	err = cleanenv.ReadEnv(&cfg)
 	if err != nil {
-		panic("ADMIN_ID environment variable must be an integer")
+		panic("Failed to load environment variables: " + err.Error())
 	}
-	cfg.AdminID = adminIDint
 
-	return cfg
+	return &cfg
 }

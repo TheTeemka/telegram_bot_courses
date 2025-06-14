@@ -15,7 +15,7 @@ type Section struct {
 	Cap         int
 }
 
-func GetCources(url string) (string, map[string][]Section, error) {
+func GetCourses(url string) (string, map[string][]Section, error) {
 	b, err := fetch(url)
 	if err != nil {
 		return "", nil, err
@@ -42,7 +42,7 @@ func parse(file io.ReadSeeker) (string, map[string][]Section, error) {
 	}
 
 	mp := make(map[string]bool)
-	cources := make(map[string][]Section)
+	courses := make(map[string][]Section)
 
 	for _, row := range rows {
 		name, err := GetString(row.GetCol(2))
@@ -81,7 +81,7 @@ func parse(file io.ReadSeeker) (string, map[string][]Section, error) {
 		if err != nil {
 			continue
 		}
-		cources[name] = append(cources[name], Section{
+		courses[name] = append(courses[name], Section{
 			SectionName: section,
 			Size:        enNum,
 			Cap:         enCap,
@@ -89,7 +89,7 @@ func parse(file io.ReadSeeker) (string, map[string][]Section, error) {
 		mp[name+section] = true
 	}
 
-	return semesterName.GetString(), cources, nil
+	return semesterName.GetString(), courses, nil
 }
 
 func GetString(s structure.CellData, err error) (string, error) {

@@ -8,20 +8,20 @@ import (
 	"sync"
 
 	"github.com/TheTeemka/telegram_bot_cources/internal/courses"
-	"github.com/TheTeemka/telegram_bot_cources/internal/repo"
+	"github.com/TheTeemka/telegram_bot_cources/internal/repositories"
 	tapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 type Section = courses.Section
 type TelegramBot struct {
 	BotAPI      *tapi.BotAPI
-	CourcesRepo *repo.CourceRepo
+	CoursesRepo *repositories.CourseRepository
 	AdminID     int64
 
 	welcomeText string
 }
 
-func NewTelegramBot(token string, adminID int64, courcesRepo *repo.CourceRepo) *TelegramBot {
+func NewTelegramBot(token string, adminID int64, coursesRepo *repositories.CourseRepository) *TelegramBot {
 	bot, err := tapi.NewBotAPI(token)
 	if err != nil {
 		slog.Error("Failed to create Telegram Bot", "error", err)
@@ -36,11 +36,11 @@ func NewTelegramBot(token string, adminID int64, courcesRepo *repo.CourceRepo) *
 			"• Available seats\n"+
 			"• Section details\n\n"+
 			"_Updates every 10 minutes_",
-		courcesRepo.SemesterName)
+		coursesRepo.SemesterName)
 
 	return &TelegramBot{
 		BotAPI:      bot,
-		CourcesRepo: courcesRepo,
+		CoursesRepo: coursesRepo,
 		AdminID:     adminID,
 
 		welcomeText: welcomeText,

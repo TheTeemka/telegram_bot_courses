@@ -1,4 +1,4 @@
-package repo
+package repositories
 
 import (
 	"log/slog"
@@ -9,20 +9,20 @@ import (
 	"github.com/TheTeemka/telegram_bot_cources/internal/courses"
 )
 
-type CourceRepo struct {
-	CourcesAPIURL string
+type CourseRepository struct {
+	CoursesAPIURL string
 	SemesterName  string
 
-	Cources        map[string][]courses.Section
+	Courses        map[string][]courses.Section
 	LastTimeParsed time.Time
 	mutex          sync.RWMutex
 	ticker         *time.Ticker
 }
 
-func NewCourceRepo(courcesAPIURL string, duration time.Duration) *CourceRepo {
-	r := &CourceRepo{
-		CourcesAPIURL: courcesAPIURL,
-		Cources:       map[string][]courses.Section{},
+func NewCourseRepo(coursesAPIURL string, duration time.Duration) *CourseRepository {
+	r := &CourseRepository{
+		CoursesAPIURL: coursesAPIURL,
+		Courses:       map[string][]courses.Section{},
 		ticker:        time.NewTicker(duration),
 	}
 
@@ -36,7 +36,7 @@ func NewCourceRepo(courcesAPIURL string, duration time.Duration) *CourceRepo {
 	return r
 }
 
-func (r *CourceRepo) Watch() {
+func (r *CourseRepository) Watch() {
 	for {
 		select {
 		case <-r.ticker.C:
@@ -48,23 +48,23 @@ func (r *CourceRepo) Watch() {
 	}
 }
 
-func (r *CourceRepo) Parse() error {
+func (r *CourseRepository) Parse() error {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
-	semesterName, crs, err := courses.GetCources(r.CourcesAPIURL)
+	semesterName, crs, err := courses.GetCourses(r.CoursesAPIURL)
 	if err != nil {
 		return err
 	}
 
-	r.Cources = crs
+	r.Courses = crs
 	r.LastTimeParsed = time.Now()
 	r.SemesterName = semesterName
 	slog.Info("Courses parsed successfully")
 	return nil
 }
 
-func (r *CourceRepo) GetCourse(name string) ([]courses.Section, bool) {
+func (r *CourseRepository) GetCourse(name string) ([]courses.Section, bool) {
 	if time.Since(r.LastTimeParsed) > 10*time.Minute {
 		err := r.Parse()
 		if err != nil {
@@ -75,6 +75,6 @@ func (r *CourceRepo) GetCourse(name string) ([]courses.Section, bool) {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
 
-	sections, exists := r.Cources[name]
+	sections, exists := r.Courses[name]
 	return sections, exists
 }

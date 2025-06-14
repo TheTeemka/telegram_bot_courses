@@ -4,8 +4,14 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/TheTeemka/telegram_bot_cources/internal/repositories"
+
 	tapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
+
+type TelegramHandler struct {
+	courseRepo *repositories.CourseRepository
+}
 
 func (bot *TelegramBot) HandleUpdate(update tapi.Update) {
 	if update.Message == nil {
@@ -25,7 +31,7 @@ func (bot *TelegramBot) HandleUpdate(update tapi.Update) {
 
 func (bot *TelegramBot) HandleCourseCode(updateMsg *tapi.Message) {
 	courseName := Standartize(updateMsg.Text)
-	sections, exists := bot.CourcesRepo.GetCourse(courseName)
+	sections, exists := bot.CoursesRepo.GetCourse(courseName)
 	slog.Debug("Received course code", "courseName", courseName, "exists", exists)
 
 	if !exists {
