@@ -59,10 +59,15 @@ func (bot *TelegramBot) Worker(ctx context.Context, updateChan tapi.UpdatesChann
 				slog.Info("Update channel closed")
 				return
 			}
+
 			msg := bot.HandleUpdate(update)
+			if msg == nil {
+				continue
+			}
+
 			_, err := bot.BotAPI.Send(msg)
 			if err != nil {
-				slog.Error("Failed to send message", "error", err, "message", msg)
+				slog.Error("Failed to send message", "error", err, "username", update.Message.From.UserName, "msg", msg)
 				continue
 			}
 		}
