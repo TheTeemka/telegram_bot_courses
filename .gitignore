@@ -2,5 +2,6 @@
 .DS_Store
 .idea
 example.xls
+/data
 
 !.env.example

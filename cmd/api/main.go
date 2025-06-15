@@ -22,8 +22,9 @@ func main() {
 
 	cfg := config.LoadConfig(*stage)
 
-	courcesRepo := repositories.NewCourseRepo(cfg.APIConfig.CourseURL, 10*time.Minute)
-	bot := telegram.NewTelegramBot(cfg.BotConfig.Token, cfg.BotConfig.AdminID, courcesRepo)
+	courseRepo := repositories.NewCourseRepo(cfg.APIConfig.CourseURL, 10*time.Minute)
+	subscriptionRepo := repositories.NewSQLiteSubscriptionRepo("./data/subscriptions.db")
+	bot := telegram.NewTelegramBot(cfg.BotConfig.Token, cfg.BotConfig.AdminID, courseRepo, subscriptionRepo)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -41,7 +42,7 @@ func main() {
 		"BOT Name", bot.BotAPI.Self.FirstName,
 		"stage", stage,
 		"cources url", cfg.APIConfig.CourseURL,
-		"semester name", courcesRepo.SemesterName)
+		"semester name", courseRepo.SemesterName)
 
 	bot.Start(ctx)
 

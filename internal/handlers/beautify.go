@@ -21,9 +21,9 @@ func (h *MessageHandler) beatify(name string, sections []models.Section) string 
 			builder.WriteRune('\n')
 		}
 		if section.Size >= section.Cap {
-			builder.WriteString(fmt.Sprintf("  ~%-7s \\(%d/%d\\)\n~", section.SectionName, section.Size, section.Cap))
+			builder.WriteString(fmt.Sprintf("•   ~%-7s \\(%d/%d\\)~\n", section.SectionName, section.Size, section.Cap))
 		} else {
-			builder.WriteString(fmt.Sprintf("  %-7s \\(%d/%d\\)\n", section.SectionName, section.Size, section.Cap))
+			builder.WriteString(fmt.Sprintf("•   *%-7s \\(%d/%d\\)*\n", section.SectionName, section.Size, section.Cap))
 		}
 	}
 	builder.WriteString(h.CoursesRepo.LastTimeParsed.Format("\n_\\Last Updated on:  15:04:05 02\\.01\\.2006 _"))
@@ -51,16 +51,4 @@ func Standartize(s string) string {
 		result.WriteRune(r)
 	}
 	return strings.Join(strings.Fields(result.String()), " ")
-}
-
-func getPrefixNumbers(s string) int {
-	prefix := 0
-	for _, r := range s {
-		if r >= '0' && r <= '9' {
-			prefix = prefix*10 + int(r-'0')
-		} else {
-			break
-		}
-	}
-	return prefix
 }
