@@ -24,7 +24,7 @@ func main() {
 
 	courseRepo := repositories.NewCourseRepo(cfg.APIConfig.CourseURL, 10*time.Minute)
 	subscriptionRepo := repositories.NewSQLiteSubscriptionRepo("./data/subscriptions.db")
-	bot := telegram.NewTelegramBot(cfg.BotConfig.Token, cfg.BotConfig.AdminID, courseRepo, subscriptionRepo)
+	bot := telegram.NewTelegramBot(*stage, cfg.BotConfig.Token, cfg.BotConfig.AdminID, courseRepo, subscriptionRepo)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

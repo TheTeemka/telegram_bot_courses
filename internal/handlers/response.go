@@ -4,21 +4,35 @@ import (
 	tapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-type Response struct {
-	Messages []string
+type MessageFormatter struct {
+	chatID   int64
+	messages []tapi.MessageConfig
 }
 
-func (r *Response) ToMessages(chatID int64) []tapi.MessageConfig {
-	msg := make([]tapi.MessageConfig, len(r.Messages))
-	for i, text := range r.Messages {
-		msg[i] = tapi.NewMessage(chatID, text)
-		msg[i].ParseMode = tapi.ModeMarkdownV2
+func NewMessageFormatter(chatID int64) *MessageFormatter {
+	return &MessageFormatter{
+		chatID: chatID,
 	}
-
-	return msg
 }
-func NewResponse(messages ...string) *Response {
-	return &Response{
-		Messages: messages,
+
+func (mf *MessageFormatter) Messages() []tapi.MessageConfig {
+	return mf.messages
+}
+
+func (mf *MessageFormatter) AddString(text string) {
+	msg := tapi.NewMessage(mf.chatID, text)
+	msg.ParseMode = tapi.ModeMarkdownV2
+	mf.messages = append(mf.messages, msg)
+}
+
+func (mf *MessageFormatter) ImmediateMessage(text string) []tapi.MessageConfig {
+	mf.AddString(text)
+	return mf.messages
+}
+
+func (mf *MessageFormatter) AddKeyboardToLastMessage(keyboard [][]tapi.InlineKeyboardButton) {
+	if len(mf.messages) == 0 {
+		panic("No messages to add inline keyboard markup to")
 	}
+	mf.messages[len(mf.messages)-1].ReplyMarkup = tapi.NewInlineKeyboardMarkup(keyboard...)
 }

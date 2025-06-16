@@ -16,13 +16,15 @@ type TelegramBot struct {
 	*handlers.MessageHandler
 }
 
-func NewTelegramBot(token string, adminID int64, coursesRepo *repositories.CourseRepository, subscriptionRepo repositories.CourseSubscriptionRepository) *TelegramBot {
+func NewTelegramBot(stage string, token string, adminID int64, coursesRepo *repositories.CourseRepository, subscriptionRepo repositories.CourseSubscriptionRepository) *TelegramBot {
 	bot, err := tapi.NewBotAPI(token)
 	if err != nil {
 		slog.Error("Failed to create Telegram Bot", "error", err)
 		os.Exit(1)
 	}
-
+	if stage == "dev" {
+		bot.Debug = true
+	}
 	return &TelegramBot{
 		BotAPI:         bot,
 		MessageHandler: handlers.NewMessageHandler(adminID, coursesRepo, subscriptionRepo),
@@ -60,12 +62,12 @@ func (bot *TelegramBot) Worker(ctx context.Context, updateChan tapi.UpdatesChann
 				return
 			}
 
-			resp := bot.HandleUpdate(update)
-			if resp == nil {
+			msgs := bot.HandleUpdate(update)
+			if msgs == nil {
 				continue
 			}
 
-			for _, msg := range resp.ToMessages(update.Message.From.ID) {
+			for _, msg := range msgs {
 				_, err := bot.BotAPI.Send(msg)
 				if err != nil {
 					slog.Error("Failed to send message", "error", err, "username", update.Message.From.UserName, "msg", msg)
