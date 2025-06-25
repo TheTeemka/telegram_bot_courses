@@ -6,6 +6,7 @@ import (
 	"os"
 	"sync"
 
+	"github.com/TheTeemka/telegram_bot_cources/internal/config"
 	"github.com/TheTeemka/telegram_bot_cources/internal/handlers"
 	"github.com/TheTeemka/telegram_bot_cources/internal/repositories"
 	tapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -14,20 +15,24 @@ import (
 type TelegramBot struct {
 	BotAPI *tapi.BotAPI
 	*handlers.MessageHandler
+	workerNum int
 }
 
-func NewTelegramBot(stage string, token string, adminID int64, coursesRepo *repositories.CourseRepository, subscriptionRepo repositories.CourseSubscriptionRepository) *TelegramBot {
-	bot, err := tapi.NewBotAPI(token)
+func NewTelegramBot(stage string, cfg config.BotConfig, workerNum int, coursesRepo *repositories.CourseRepository, subscriptionRepo repositories.CourseSubscriptionRepository) *TelegramBot {
+	bot, err := tapi.NewBotAPI(cfg.Token)
 	if err != nil {
 		slog.Error("Failed to create Telegram Bot", "error", err)
 		os.Exit(1)
 	}
-	if stage == "dev" {
-		bot.Debug = true
-	}
+
+	// if stage == "dev" {
+	// 	bot.Debug = true
+	// }
+
 	return &TelegramBot{
 		BotAPI:         bot,
-		MessageHandler: handlers.NewMessageHandler(adminID, coursesRepo, subscriptionRepo),
+		MessageHandler: handlers.NewMessageHandler(cfg.AdminID, coursesRepo, subscriptionRepo),
+		workerNum:      workerNum,
 	}
 }
 
@@ -36,11 +41,9 @@ func (bot *TelegramBot) Start(ctx context.Context) {
 	updateConfig.Timeout = 69
 	updateChan := bot.BotAPI.GetUpdatesChan(updateConfig)
 
-	const workerNum = 5
-
 	var wg sync.WaitGroup
-	wg.Add(workerNum)
-	for range workerNum {
+	wg.Add(bot.workerNum)
+	for range bot.workerNum {
 		go func() {
 			defer wg.Done()
 			bot.Worker(ctx, updateChan)

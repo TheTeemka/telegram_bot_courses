@@ -43,7 +43,7 @@ func (h *MessageHandler) HandleUpdate(update tapi.Update) []tapi.MessageConfig {
 		return h.HandleCallback(update.CallbackQuery)
 	}
 
-	if update.Message == nil || update.Message.From.ID != h.AdminID {
+	if update.Message == nil || (h.AdminID != 0 && update.Message.From.ID != h.AdminID) {
 		return nil
 	}
 
@@ -61,10 +61,10 @@ func (h *MessageHandler) HandleCommand(cmd *tapi.Message) []tapi.MessageConfig {
 		return h.HandleSubscribe(cmd)
 	case "unsubscribe":
 		return h.HandleUnsubscribe(cmd)
+	// case "list":
+	// 	return h.ListSubscriptions(cmd)
 	case "list":
 		return h.ListSubscriptions(cmd)
-	case "showall":
-		return h.ShowAllSubscriptions(cmd)
 	default:
 		return h.HandleCommandUnknown(cmd)
 	}
@@ -72,16 +72,16 @@ func (h *MessageHandler) HandleCommand(cmd *tapi.Message) []tapi.MessageConfig {
 
 func (h *MessageHandler) HandleSubscribe(cmd *tapi.Message) []tapi.MessageConfig {
 	mf := NewMessageFormatter(cmd.From.ID)
-	courseName := Standartize(cmd.CommandArguments())
-	if courseName == "" {
-		return mf.ImmediateMessage("Please provide a course code\\. Example: `/subscribe CSCI 151`")
+	courseName, sectionNames, ok := parseCommandArguments(cmd.CommandArguments())
+	if !ok {
+		return mf.ImmediateMessage("Please provide a course code\\. Example: `/subscribe [Course Name] [Course Sections].`\\.")
 	}
 
 	if _, exists := h.CoursesRepo.GetCourse(courseName); !exists {
 		return mf.ImmediateMessage(fmt.Sprintf("Course *%s* not found", courseName))
 	}
 
-	err := h.CourseSubscriptionRepository.Subscribe(cmd.From.ID, courseName)
+	err := h.CourseSubscriptionRepository.Subscribe(cmd.From.ID, courseName, sectionNames)
 	if err != nil {
 		slog.Error("Failed to subscribe",
 			"error", err,
@@ -90,14 +90,46 @@ func (h *MessageHandler) HandleSubscribe(cmd *tapi.Message) []tapi.MessageConfig
 		return mf.ImmediateMessage("Failed to subscribe to the course\\. Please try again\\.")
 	}
 
-	return mf.ImmediateMessage(fmt.Sprintf("✅ Successfully subscribed to *%s*", courseName))
+	return mf.ImmediateMessage(fmt.Sprintf("✅ Successfully subscribed to *%s \\(%s\\)*", courseName, strings.Join(sectionNames, ", ")))
+}
+
+func parseCommandArguments(args string) (string, []string, bool) {
+	fields := strings.Fields(args)
+	if len(fields) < 2 {
+		return "", nil, false
+	}
+	courseName := fields[0]
+	ind := 1
+	if !isDigit(courseName[len(courseName)-1]) && isDigit(fields[1][0]) {
+		courseName += fields[1]
+		ind++
+	}
+
+	if ind == len(fields) {
+		return "", nil, false
+	}
+
+	var section []string
+	for i := ind; i < len(fields); i++ {
+		if !isDigit(fields[i][0]) {
+			section[len(section)-1] += fields[i]
+		} else {
+			section = append(section, fields[i])
+		}
+	}
+	return StandartizeCourseName(courseName), section, true //TODO: Section ToUpper
+
+}
+
+func isDigit(b byte) bool {
+	return '0' <= rune(b) && rune(b) <= '9'
 }
 
 func (h *MessageHandler) HandleUnsubscribe(cmd *tapi.Message) []tapi.MessageConfig {
 	mf := NewMessageFormatter(cmd.From.ID)
-	courseName := Standartize(cmd.CommandArguments())
+	courseName := cmd.CommandArguments()
 	if courseName == "" {
-		return mf.ImmediateMessage("Please provide a course code\\. Example: `/unsubscribe CSCI 151`")
+		return mf.ImmediateMessage("Please provide a course code\\. Example: `/unsubscribe [Course Name].`\\.")
 	}
 
 	if _, exists := h.CoursesRepo.GetCourse(courseName); !exists {
@@ -106,11 +138,11 @@ func (h *MessageHandler) HandleUnsubscribe(cmd *tapi.Message) []tapi.MessageConf
 
 	err := h.CourseSubscriptionRepository.UnSubscribe(cmd.From.ID, courseName)
 	if err != nil {
-		slog.Error("Failed to unsubscribe",
+		slog.Error("Failed to subscribe",
 			"error", err,
 			"user_id", cmd.From.ID,
 			"course", courseName)
-		return mf.ImmediateMessage("Failed to unsubscribe from the course\\. Please try again\\.")
+		return mf.ImmediateMessage("Failed to subscribe to the course\\. Please try again\\.")
 	}
 
 	return mf.ImmediateMessage(fmt.Sprintf("✅ Successfully unsubscribed from *%s*", courseName))
@@ -118,61 +150,52 @@ func (h *MessageHandler) HandleUnsubscribe(cmd *tapi.Message) []tapi.MessageConf
 
 func (h *MessageHandler) ListSubscriptions(cmd *tapi.Message) []tapi.MessageConfig {
 	mf := NewMessageFormatter(cmd.From.ID)
-	subs := h.CourseSubscriptionRepository.GetSubscription(cmd.From.ID)
+
+	subs, err := h.CourseSubscriptionRepository.GetSubscriptions(cmd.From.ID)
+	if err != nil {
+		slog.Error("Failed to get subscriptions", "err", err)
+		return mf.ImmediateMessage("Failed to retrieve your subscriptions\\. Please try again later\\.")
+	}
 	if len(subs) == 0 {
 		return mf.ImmediateMessage("You haven't subscribed to any courses yet\\.")
 	}
 
-	mf.AddString("*Your subscriptions:*\n")
+	var sb strings.Builder
+	sb.WriteString("Your subscriptions:\n")
 	for _, sub := range subs {
-		mf.AddString(fmt.Sprintf("•  *%s*", sub.Course))
-		callbackSub := fmt.Sprintf("show_%s", sub.Course)
-		callbackUnSub := fmt.Sprintf("unsubscribe_%s", sub.Course)
-
-		mf.AddKeyboardToLastMessage([][]tapi.InlineKeyboardButton{
-			{
-				{Text: "ℹ️ Show", CallbackData: &callbackSub},
-				{Text: "❌ Unsubscribe", CallbackData: &callbackUnSub},
-			},
-		})
-	}
-
-	return mf.Messages()
-}
-
-func (h *MessageHandler) ShowAllSubscriptions(cmd *tapi.Message) []tapi.MessageConfig {
-	mf := NewMessageFormatter(cmd.From.ID)
-
-	subs := h.CourseSubscriptionRepository.GetSubscription(cmd.From.ID)
-	if len(subs) == 0 {
-		return mf.ImmediateMessage("You haven't subscribed to any courses yet\\.")
-	}
-
-	mf.AddString("*Your subscriptions:*")
-	for _, sub := range subs {
-		sections, exists := h.CoursesRepo.GetCourse(sub.Course)
+		_, exists := h.CoursesRepo.GetCourse(sub.Course)
 		if !exists {
-			mf.AddString(fmt.Sprintf("Course '*%s*' not found", sub.Course))
+			sb.WriteString(fmt.Sprintf("❌ Course '*%s*' not found", sub.Course))
+			continue
+		}
+
+		section, exists := h.CoursesRepo.GetSection(sub.Course, sub.Section)
+		if !exists {
+			sb.WriteString(fmt.Sprintf("❌ Course '*%s*' found. Section '*%s*' not found", sub.Course, sub.Section))
 		} else {
-			mf.AddString(h.beatify(sub.Course, sections))
+			if section.Size >= section.Cap {
+				sb.WriteString(fmt.Sprintf("•   ~%-10s %-7s \\(%d/%d\\)~\n", sub.Course, sub.Section, section.Size, section.Cap))
+			} else {
+				sb.WriteString(fmt.Sprintf("•   %-10s %-7s \\(%d/%d\\)\n", sub.Course, section.SectionName, section.Size, section.Cap))
+			}
 		}
 	}
 
-	return mf.Messages()
+	return mf.ImmediateMessage(sb.String())
 }
 
 func (h *MessageHandler) HandleCourseCode(updateMsg *tapi.Message) []tapi.MessageConfig {
 	mf := NewMessageFormatter(updateMsg.From.ID)
 
-	courseName := Standartize(updateMsg.Text)
-	sections, exists := h.CoursesRepo.GetCourse(courseName)
-	slog.Debug("Received course code", "courseName", courseName, "exists", exists)
+	courseAbbr := StandartizeCourseName(updateMsg.Text)
+	course, exists := h.CoursesRepo.GetCourse(courseAbbr)
+	slog.Debug("Received course code", "courseName", courseAbbr, "exists", exists)
 
 	if !exists {
-		return mf.ImmediateMessage(fmt.Sprintf("Course '*%s*' not found", courseName))
+		return mf.ImmediateMessage(fmt.Sprintf("Course '*%s*' not found", courseAbbr))
 	}
 
-	return mf.ImmediateMessage(h.beatify(courseName, sections))
+	return mf.ImmediateMessage(h.beatify(course))
 }
 
 func (h *MessageHandler) HandleCommandUnknown(cmd *tapi.Message) []tapi.MessageConfig {
@@ -195,22 +218,22 @@ func (h *MessageHandler) HandleCallback(callback *tapi.CallbackQuery) []tapi.Mes
 		return mf.ImmediateMessage("⚠️ Invalid callback data format")
 	}
 	action := args[0]
-	course := args[1]
+	courseAbbr := args[1]
 
 	switch action {
 	case "show":
-		sections, exists := h.CoursesRepo.GetCourse(course)
+		course, exists := h.CoursesRepo.GetCourse(courseAbbr)
 		if !exists {
-			mf.AddString(fmt.Sprintf("Course '*%s*' not found", course))
+			mf.AddString(fmt.Sprintf("Course '*%s*' not found", courseAbbr))
 		} else {
-			mf.AddString(h.beatify(course, sections))
+			mf.AddString(h.beatify(course))
 		}
 	case "unsubscribe":
-		err := h.CourseSubscriptionRepository.UnSubscribe(callback.From.ID, course)
+		err := h.CourseSubscriptionRepository.UnSubscribe(callback.From.ID, courseAbbr)
 		if err != nil {
 			mf.AddString("Failed to unsubscribe from the course\\. Please try again\\.")
 		} else {
-			mf.AddString(fmt.Sprintf("✅ Successfully unsubscribed from *%s*", course))
+			mf.AddString(fmt.Sprintf("✅ Successfully unsubscribed from *%s*", courseAbbr))
 		}
 	default:
 		mf.AddString("⚠️ Unknown action in callback data")
@@ -218,3 +241,27 @@ func (h *MessageHandler) HandleCallback(callback *tapi.CallbackQuery) []tapi.Mes
 
 	return mf.messages
 }
+
+// func (h *MessageHandler) ListSubscriptions(cmd *tapi.Message) []tapi.MessageConfig {
+// 	mf := NewMessageFormatter(cmd.From.ID)
+// 	subs := h.CourseSubscriptionRepository.GetSubscriptions(cmd.From.ID)
+// 	if len(subs) == 0 {
+// 		return mf.ImmediateMessage("You haven't subscribed to any courses yet\\.")
+// 	}
+
+// 	mf.AddString("*Your subscriptions:*\n")
+// 	for _, sub := range subs {
+// 		mf.AddString(fmt.Sprintf("•  *%s %s*", sub.Course, sub.Section))
+// 		callbackSub := fmt.Sprintf("show_%s_%s", sub.Course, sub.Section)
+// 		callbackUnSub := fmt.Sprintf("unsubscribe_%s_%s", sub.Course, sub.Section)
+
+// 		mf.AddKeyboardToLastMessage([][]tapi.InlineKeyboardButton{
+// 			{
+// 				{Text: "ℹ️ Show", CallbackData: &callbackSub},
+// 				{Text: "❌ Unsubscribe", CallbackData: &callbackUnSub},
+// 			},
+// 		})
+// 	}
+
+// 	return mf.Messages()
+// }

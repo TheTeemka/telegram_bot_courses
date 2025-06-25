@@ -1,13 +1,19 @@
 package models
 
 import (
-	"log/slog"
 	"slices"
 	"strings"
 )
 
+type Course struct {
+	FullName string
+	AbbrName string
+	Sections []Section
+}
+
 type Section struct {
 	SectionName string
+	Days        []string
 	Size        int
 	Cap         int
 }
@@ -21,8 +27,6 @@ func SortSections(sections []Section) []Section {
 				return -1
 			} else if an > bn {
 				return 1
-			} else {
-				slog.Error("Sections have the same name and prefix numbers", "sectionA", a.SectionName, "sectionB", b.SectionName)
 			}
 			return 0
 		}

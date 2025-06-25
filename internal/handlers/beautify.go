@@ -7,15 +7,16 @@ import (
 	"github.com/TheTeemka/telegram_bot_cources/internal/models"
 )
 
-func (h *MessageHandler) beatify(name string, sections []models.Section) string {
+func (h *MessageHandler) beatify(course models.Course) string {
 	builder := strings.Builder{}
 
-	builder.WriteString(fmt.Sprintf("%s: %s\n", Standartize(name), Standartize(h.CoursesRepo.SemesterName)))
+	builder.WriteString(fmt.Sprintf("%s\n", h.CoursesRepo.SemesterName))
+	builder.WriteString(fmt.Sprintf("%s: %s\n", course.AbbrName, course.FullName))
 
-	sections = models.SortSections(sections)
+	course.Sections = models.SortSections(course.Sections)
 
 	var s string
-	for _, section := range sections {
+	for _, section := range course.Sections {
 		if s != trimNumbersFromPrefix(section.SectionName) {
 			s = trimNumbersFromPrefix(section.SectionName)
 			builder.WriteRune('\n')
@@ -23,7 +24,7 @@ func (h *MessageHandler) beatify(name string, sections []models.Section) string 
 		if section.Size >= section.Cap {
 			builder.WriteString(fmt.Sprintf("•   ~%-7s \\(%d/%d\\)~\n", section.SectionName, section.Size, section.Cap))
 		} else {
-			builder.WriteString(fmt.Sprintf("•   *%-7s \\(%d/%d\\)*\n", section.SectionName, section.Size, section.Cap))
+			builder.WriteString(fmt.Sprintf("•   %-7s \\(%d/%d\\)\n", section.SectionName, section.Size, section.Cap))
 		}
 	}
 	builder.WriteString(h.CoursesRepo.LastTimeParsed.Format("\n_\\Last Updated on:  15:04:05 02\\.01\\.2006 _"))
@@ -37,13 +38,15 @@ func trimNumbersFromPrefix(s string) string {
 	})
 }
 
-func Standartize(s string) string {
+func StandartizeCourseName(s string) string {
 	s = strings.ToUpper(s)
-	s = strings.Join(strings.Fields(s), "")
 
 	var result strings.Builder
 	var numStart bool
 	for _, r := range s {
+		if r == ' ' {
+			continue
+		}
 		if r >= '0' && r <= '9' && !numStart {
 			result.WriteRune(' ')
 			numStart = true
@@ -51,4 +54,10 @@ func Standartize(s string) string {
 		result.WriteRune(r)
 	}
 	return strings.Join(strings.Fields(result.String()), " ")
+}
+
+func StandartizeSectionName(s string) string {
+	s = strings.ToUpper(s)
+	s = strings.Join(strings.Fields(s), "")
+	return s
 }

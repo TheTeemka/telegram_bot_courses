@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"flag"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -16,15 +15,11 @@ import (
 )
 
 func main() {
-	stage := flag.String("stage", "dev", "Environment stage (dev, prod)")
-	flag.Parse()
-	logging.SetSlog(*stage)
-
-	cfg := config.LoadConfig(*stage)
-
+	cfg := config.LoadConfig()
+	logging.SetSlog(cfg.EnvStage)
 	courseRepo := repositories.NewCourseRepo(cfg.APIConfig.CourseURL, 10*time.Minute)
 	subscriptionRepo := repositories.NewSQLiteSubscriptionRepo("./data/subscriptions.db")
-	bot := telegram.NewTelegramBot(*stage, cfg.BotConfig.Token, cfg.BotConfig.AdminID, courseRepo, subscriptionRepo)
+	bot := telegram.NewTelegramBot(cfg.EnvStage, cfg.BotConfig, 5, courseRepo, subscriptionRepo)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -40,7 +35,7 @@ func main() {
 
 	slog.Info("Telegram Bot Started...",
 		"BOT Name", bot.BotAPI.Self.FirstName,
-		"stage", stage,
+		"stage", cfg.EnvStage,
 		"cources url", cfg.APIConfig.CourseURL,
 		"semester name", courseRepo.SemesterName)
 
