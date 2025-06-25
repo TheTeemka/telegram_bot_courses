@@ -231,12 +231,12 @@ func parseXLS(file io.ReadSeeker) (string, map[string]models.Course, []string, e
 		courses[abbrName] = crs
 	}
 
-	courseKeys := make([]string, 0, len(courses))
-	for abbr := range courses {
-		courseKeys = append(courseKeys, abbr)
+	sectionAbbrList := make([]string, 0, len(sectionName))
+	for abbr := range sectionName {
+		sectionAbbrList = append(sectionAbbrList, abbr)
 	}
 
-	return semesterName.GetString(), courses, courseKeys, nil
+	return semesterName.GetString(), courses, sectionAbbrList, nil
 }
 
 func GetString(s structure.CellData, err error) (string, error) {

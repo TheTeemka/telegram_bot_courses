@@ -72,7 +72,7 @@ func (h *MessageHandler) HandleCommand(cmd *tapi.Message) []tapi.MessageConfig {
 
 func (h *MessageHandler) HandleSubscribe(cmd *tapi.Message) []tapi.MessageConfig {
 	mf := NewMessageFormatter(cmd.From.ID)
-	courseName, sectionNames, ok := parseCommandArguments(cmd.CommandArguments())
+	courseName, sectionNames, ok := h.parseCommandArguments(cmd.CommandArguments())
 	if !ok {
 		return mf.ImmediateMessage("Please provide a course code\\. Example: `/subscribe [Course Name] [Course Sections].`\\.")
 	}
@@ -93,7 +93,7 @@ func (h *MessageHandler) HandleSubscribe(cmd *tapi.Message) []tapi.MessageConfig
 	return mf.ImmediateMessage(fmt.Sprintf("✅ Successfully subscribed to *%s \\(%s\\)*", courseName, strings.Join(sectionNames, ", ")))
 }
 
-func parseCommandArguments(args string) (string, []string, bool) {
+func (h *MessageHandler) parseCommandArguments(args string) (string, []string, bool) {
 	fields := strings.Fields(args)
 	if len(fields) < 2 {
 		return "", nil, false
@@ -116,6 +116,14 @@ func parseCommandArguments(args string) (string, []string, bool) {
 		} else {
 			section = append(section, fields[i])
 		}
+	}
+
+	for i := range section {
+		sec, ok := StandartizeSectionName(section[i], h.CoursesRepo.SectionAbbrList)
+		if !ok {
+			return "", nil, false
+		}
+		section[i] = sec
 	}
 	return StandartizeCourseName(courseName), section, true //TODO: Section ToUpper
 
@@ -165,13 +173,13 @@ func (h *MessageHandler) ListSubscriptions(cmd *tapi.Message) []tapi.MessageConf
 	for _, sub := range subs {
 		_, exists := h.CoursesRepo.GetCourse(sub.Course)
 		if !exists {
-			sb.WriteString(fmt.Sprintf("❌ Course '*%s*' not found", sub.Course))
+			sb.WriteString(fmt.Sprintf("❌ Course '*%s*' not found\n", sub.Course))
 			continue
 		}
 
 		section, exists := h.CoursesRepo.GetSection(sub.Course, sub.Section)
 		if !exists {
-			sb.WriteString(fmt.Sprintf("❌ Course '*%s*' found. Section '*%s*' not found", sub.Course, sub.Section))
+			sb.WriteString(fmt.Sprintf("❌ Course '*%s*' Section '*%s*' not found\n", sub.Course, sub.Section))
 		} else {
 			if section.Size >= section.Cap {
 				sb.WriteString(fmt.Sprintf("•   ~%-10s %-7s \\(%d/%d\\)~\n", sub.Course, sub.Section, section.Size, section.Cap))
