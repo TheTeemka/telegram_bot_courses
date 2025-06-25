@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -24,6 +25,8 @@ type CourseRepository struct {
 	LastTimeParsed time.Time
 	mutex          sync.RWMutex
 	ticker         *time.Ticker
+
+	SectionAbbrList []string
 }
 
 func NewCourseRepo(coursesAPIURL string, duration time.Duration) *CourseRepository {
@@ -56,7 +59,7 @@ func (r *CourseRepository) Parse() error {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
-	semesterName, cources, err := ParseCourses(r.CoursesAPIURL)
+	semesterName, cources, sectionAbbrList, err := ParseCourses(r.CoursesAPIURL)
 	if err != nil {
 		return err
 	}
@@ -64,6 +67,8 @@ func (r *CourseRepository) Parse() error {
 	r.Courses = cources
 	r.LastTimeParsed = time.Now()
 	r.SemesterName = semesterName
+	r.SectionAbbrList = sectionAbbrList
+
 	slog.Info("Courses parsed successfully")
 	return nil
 }
@@ -106,10 +111,10 @@ func (r *CourseRepository) GetSection(courseName, SectionName string) (models.Se
 	return models.Section{}, false
 }
 
-func ParseCourses(url string) (string, map[string]models.Course, error) {
+func ParseCourses(url string) (string, map[string]models.Course, []string, error) {
 	b, err := fetch(url)
 	if err != nil {
-		return "", nil, err
+		return "", nil, nil, err
 	}
 
 	return parseXLS(bytes.NewReader(b))
@@ -142,26 +147,26 @@ func fetch(url string) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func parseXLS(file io.ReadSeeker) (string, map[string]models.Course, error) {
+func parseXLS(file io.ReadSeeker) (string, map[string]models.Course, []string, error) {
 	wb, err := xls.OpenReader(file)
 	if err != nil {
-		return "", nil, err
+		return "", nil, nil, err
 	}
 
 	sheet, err := wb.GetSheet(0)
 	if err != nil {
-		return "", nil, err
+		return "", nil, nil, err
 	}
 	rows := sheet.GetRows()
 
 	semesterName, err := rows[0].GetCol(0)
 	if err != nil {
-		return "", nil, err
+		return "", nil, nil, err
 	}
 
 	duplicates := make(map[string]bool)
 	courses := make(map[string]models.Course)
-
+	sectionName := make(map[string]bool)
 	for _, row := range rows {
 		abbrName, err := GetString(row.GetCol(2)) //Course Abbr
 		if err != nil {
@@ -213,6 +218,10 @@ func parseXLS(file io.ReadSeeker) (string, map[string]models.Course, error) {
 			}
 		}
 
+		if _, ok := sectionName[trimNumbersFromPrefix(section)]; !ok {
+			sectionName[trimNumbersFromPrefix(section)] = true
+		}
+
 		crs := courses[abbrName]
 		crs.Sections = append(crs.Sections, models.Section{
 			SectionName: section,
@@ -222,9 +231,20 @@ func parseXLS(file io.ReadSeeker) (string, map[string]models.Course, error) {
 		courses[abbrName] = crs
 	}
 
-	return semesterName.GetString(), courses, nil
+	courseKeys := make([]string, 0, len(courses))
+	for abbr := range courses {
+		courseKeys = append(courseKeys, abbr)
+	}
+
+	return semesterName.GetString(), courses, courseKeys, nil
 }
 
 func GetString(s structure.CellData, err error) (string, error) {
 	return s.GetString(), err
+}
+
+func trimNumbersFromPrefix(s string) string {
+	return strings.TrimLeftFunc(s, func(r rune) bool {
+		return (r >= '0' && r <= '9') || r == ' ' || r == '-'
+	})
 }
