@@ -53,7 +53,11 @@ func (t *Tracker) Start(ctx context.Context, writeChan chan<- tapi.Chattable) {
 							sub.Course, sub.Section, sect.Size, sect.Cap))
 
 					sub.IsFull = false
-					t.subscriptionRepo.Update(sub)
+					err := t.subscriptionRepo.Update(sub)
+					if err != nil {
+						slog.Error("Failed to update subscription", "error", err, "subscription", sub)
+						continue
+					}
 
 				} else if !sub.IsFull && sect.Size >= sect.Cap {
 					writeChan <- immediateMessage(sub.TelegramID,
@@ -61,7 +65,11 @@ func (t *Tracker) Start(ctx context.Context, writeChan chan<- tapi.Chattable) {
 							sub.Course, sub.Section, sect.Size, sect.Cap))
 
 					sub.IsFull = true
-					t.subscriptionRepo.Update(sub)
+					err := t.subscriptionRepo.Update(sub)
+					if err != nil {
+						slog.Error("Failed to update subscription", "error", err, "subscription", sub)
+						continue
+					}
 				}
 			}
 		}

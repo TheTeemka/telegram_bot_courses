@@ -2,8 +2,10 @@ package config
 
 import (
 	"flag"
+	"os"
+	"strconv"
+	"strings"
 
-	"github.com/ilyakaznacheev/cleanenv"
 	"github.com/joho/godotenv"
 )
 
@@ -14,39 +16,63 @@ type Config struct {
 }
 
 type BotConfig struct {
-	Token   string `env:"TELEGRAM_BOT_TOKEN" env-required:"true"`
-	AdminID int64  `env:"TELEGRAM_ADMIN_ID"`
+	Token   string
+	AdminID []int64
 }
 
 type APIConfig struct {
-	CourseURL string `env:"COURCES_API_URL"`
+	CourseURL string
 }
 
 // envStage = {"dev", "prod"}
 func LoadConfig() *Config {
 	stage := flag.String("stage", "dev", "Environment stage (dev, prod)")
-	public := flag.Bool("public", false, "Is the bot running in public mode? (default: false)")
+	private := flag.Bool("private", false, "Is the bot running in public mode? (default: false)")
+	exampleData := flag.Bool("example-data", false, "Load example data for testing (default: false)")
 	flag.Parse()
 
-	err := godotenv.Load(".env." + *stage)
+	err := godotenv.Load(".env")
 	if err != nil {
 		panic("Failed to load .env file: " + err.Error())
 	}
 
-	var cfg Config
-	err = cleanenv.ReadEnv(&cfg)
+	cfg := &Config{
+		EnvStage: *stage,
+		BotConfig: BotConfig{
+			Token: os.Getenv("TELEGRAM_BOT_TOKEN"),
+		},
+	}
+
+	if *private {
+		cfg.BotConfig.AdminID = parseInt64Array(os.Getenv("TELEGRAM_ADMIN_ID"))
+		if len(cfg.BotConfig.AdminID) == 0 {
+			panic("TELEGRAM_ADMIN_ID environment variable is not set or invalid")
+		}
+	}
+
+	if !*exampleData {
+		cfg.APIConfig.CourseURL = os.Getenv("COURCES_API_URL")
+		if cfg.APIConfig.CourseURL == "" {
+			panic("COURCES_API_URL environment variable is not set")
+		}
+	}
+
+	return cfg
+}
+
+func MustInt64(s string) int64 {
+	x, err := strconv.ParseInt(s, 10, 64)
 	if err != nil {
-		panic("Failed to load environment variables: " + err.Error())
+		panic("Failed to parse int64: " + err.Error())
 	}
+	return x
+}
 
-	if *stage != "dev" && cfg.APIConfig.CourseURL == "" {
-		panic("COURCES_API_URL is required in production environment")
+func parseInt64Array(s string) []int64 {
+	fields := strings.Split(s, ",")
+	arr := make([]int64, len(fields))
+	for _, f := range fields {
+		arr = append(arr, MustInt64(f))
 	}
-
-	if !*public && cfg.BotConfig.AdminID == 0 {
-		panic("TELEGRAM_ADMIN_ID is required in non-public mode")
-	}
-	cfg.EnvStage = *stage
-
-	return &cfg
+	return arr
 }

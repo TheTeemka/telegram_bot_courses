@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
 
 	"github.com/TheTeemka/telegram_bot_cources/internal/repositories"
@@ -12,12 +13,12 @@ import (
 type MessageHandler struct {
 	CoursesRepo                  *repositories.CourseRepository
 	CourseSubscriptionRepository repositories.CourseSubscriptionRepository
-	AdminID                      int64
+	AdminID                      []int64
 
 	welcomeText string
 }
 
-func NewMessageHandler(adminID int64, coursesRepo *repositories.CourseRepository, subscriptionRepo repositories.CourseSubscriptionRepository) *MessageHandler {
+func NewMessageHandler(adminID []int64, coursesRepo *repositories.CourseRepository, subscriptionRepo repositories.CourseSubscriptionRepository) *MessageHandler {
 	welcomeText := fmt.Sprintf(
 		"*Welcome to the Course Bot\\.* 🎓\n\n"+
 			"I provide real\\-time insights about class enrollments for *%s*\n\n"+
@@ -43,7 +44,7 @@ func (h *MessageHandler) HandleUpdate(update tapi.Update) []tapi.MessageConfig {
 		return h.HandleCallback(update.CallbackQuery)
 	}
 
-	if update.Message == nil || (h.AdminID != 0 && update.Message.From.ID != h.AdminID) {
+	if update.Message == nil || (len(h.AdminID) == 0 && slices.Contains(h.AdminID, update.Message.From.ID)) {
 		return nil
 	}
 
