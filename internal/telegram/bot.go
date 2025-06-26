@@ -36,7 +36,7 @@ func NewTelegramBot(stage string, cfg config.BotConfig, workerNum int, coursesRe
 	}
 }
 
-func (bot *TelegramBot) Start(ctx context.Context) {
+func (bot *TelegramBot) Start(ctx context.Context, writeChan <-chan tapi.Chattable) {
 	updateConfig := tapi.NewUpdate(0)
 	updateConfig.Timeout = 69
 	updateChan := bot.BotAPI.GetUpdatesChan(updateConfig)
@@ -49,6 +49,12 @@ func (bot *TelegramBot) Start(ctx context.Context) {
 			bot.Worker(ctx, updateChan)
 		}()
 	}
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		bot.Sender(ctx, writeChan)
+	}()
 
 	wg.Wait()
 
@@ -73,9 +79,28 @@ func (bot *TelegramBot) Worker(ctx context.Context, updateChan tapi.UpdatesChann
 			for _, msg := range msgs {
 				_, err := bot.BotAPI.Send(msg)
 				if err != nil {
-					slog.Error("Failed to send message", "error", err, "username", update.Message.From.UserName, "msg", msg)
+					slog.Error("Failed to send message in worker", "error", err, "username", update.Message.From.UserName, "msg", msg)
 					continue
 				}
+			}
+		}
+	}
+}
+
+func (bot *TelegramBot) Sender(ctx context.Context, writeChan <-chan tapi.Chattable) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case msg, ok := <-writeChan:
+			if !ok {
+				slog.Info("Update channel closed")
+				return
+			}
+			_, err := bot.BotAPI.Send(msg)
+			if err != nil {
+				slog.Error("Failed to send message in sender", "error", err)
+				continue
 			}
 		}
 	}

@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"fmt"
-	"log/slog"
 	"strings"
 
 	"github.com/TheTeemka/telegram_bot_cources/internal/models"
@@ -60,7 +59,6 @@ func StandartizeCourseName(s string) string {
 func StandartizeSectionName(s string, sectionAbbrList []string) (string, bool) {
 	trimmedS := trimNumbersFromPrefix(s)
 	for _, sectionAbbr := range sectionAbbrList {
-		slog.Debug("Standardizing section name", "input", trimmedS, "standardized", sectionAbbr)
 		if strings.EqualFold(trimmedS, sectionAbbr) {
 			return retrieveNumbersFromPrefix(s) + sectionAbbr, true
 		}

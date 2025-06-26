@@ -36,7 +36,9 @@ func NewSQLiteSubscriptionRepo(dbPath string) CourseSubscriptionRepository {
             telegram_id INTEGER NOT NULL,
             course TEXT NOT NULL,
 			section TEXT NOT NULL, 
-            added_at DATETIME NOT NULL,
+            added_at  DATETIME NOT NULL,
+			updated_at DATETIME ,
+			is_full BOOLEAN DEFAULT FALSE,
             PRIMARY KEY (telegram_id, course, section)
         )
     `)
@@ -48,7 +50,7 @@ func NewSQLiteSubscriptionRepo(dbPath string) CourseSubscriptionRepository {
 	return &sqliteSubscriptionRepo{db: db}
 }
 
-func (r *sqliteSubscriptionRepo) Subscribe(userID int64, course string, sections []string) error {
+func (r *sqliteSubscriptionRepo) Subscribe(telegramID int64, course string, sections []string) error {
 	query := `
 		INSERT OR REPLACE INTO subscriptions (telegram_id, course, section,  added_at)
         VALUES (?, ?, ?, ?)
@@ -59,7 +61,7 @@ func (r *sqliteSubscriptionRepo) Subscribe(userID int64, course string, sections
 	}
 
 	for _, sect := range sections {
-		_, err = tx.Exec(query, userID, course, sect, time.Now())
+		_, err = tx.Exec(query, telegramID, course, sect, time.Now())
 		if err != nil {
 			tx.Rollback()
 			return fmt.Errorf("inserting subscription: %w", err)
@@ -101,9 +103,9 @@ func (r *sqliteSubscriptionRepo) ClearSubscriptions(userID int64) error {
 	return nil
 }
 
-func (r *sqliteSubscriptionRepo) GetSubscriptions(userID int64) ([]models.CourseSubscription, error) {
+func (r *sqliteSubscriptionRepo) GetSubscriptions(userID int64) ([]*models.CourseSubscription, error) {
 	rows, err := r.db.Query(`
-        SELECT telegram_id, course, section, added_at
+        SELECT telegram_id, course, section, is_full
         FROM subscriptions
         WHERE telegram_id = ?
         ORDER BY added_at DESC
@@ -114,17 +116,58 @@ func (r *sqliteSubscriptionRepo) GetSubscriptions(userID int64) ([]models.Course
 	}
 	defer rows.Close()
 
-	var subs []models.CourseSubscription
+	var subs []*models.CourseSubscription
 	for rows.Next() {
 		var sub models.CourseSubscription
-		err := rows.Scan(&sub.UserID, &sub.Course, &sub.Section, &sub.AddedAt)
+		err := rows.Scan(&sub.TelegramID, &sub.Course, &sub.Section, &sub.IsFull)
 		if err != nil {
 			return nil, err
 		}
-		subs = append(subs, sub)
+		subs = append(subs, &sub)
 	}
 
 	return subs, nil
+}
+
+func (r *sqliteSubscriptionRepo) GetAll() ([]*models.CourseSubscription, error) {
+	rows, err := r.db.Query(`
+        SELECT telegram_id, course, section, is_full
+        FROM subscriptions
+    `)
+
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var subs []*models.CourseSubscription
+	for rows.Next() {
+		var sub models.CourseSubscription
+		err := rows.Scan(&sub.TelegramID, &sub.Course, &sub.Section, &sub.IsFull)
+		if err != nil {
+			return nil, err
+		}
+		subs = append(subs, &sub)
+	}
+
+	return subs, nil
+}
+
+func (r *sqliteSubscriptionRepo) Update(sub *models.CourseSubscription) error {
+	query := `
+        UPDATE subscriptions
+        SET updated_at = ?, is_full = ?
+        WHERE telegram_id = ? AND course = ? AND section = ?
+    `
+
+	_, err := r.db.Exec(query,
+		time.Now(),
+		sub.IsFull,
+		sub.TelegramID,
+		sub.Course,
+		sub.Section,
+	)
+	return err
 }
 
 func (r *sqliteSubscriptionRepo) Close() error {
