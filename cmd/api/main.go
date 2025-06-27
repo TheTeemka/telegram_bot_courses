@@ -21,13 +21,36 @@ func main() {
 
 	logging.SetSlog(cfg.EnvStage)
 
+	bot, tracker := setupApp(cfg)
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	defer cancel()
+	gracefullShutdown(cancel)
+
+	slog.Info("Telegram Bot Started...",
+		"BOT Name", bot.BotAPI.Self.FirstName,
+		"stage", cfg.EnvStage,
+		"cources url", cfg.APIConfig.CourseURL,
+		"semester name", bot.CoursesRepo.SemesterName)
+
+	writeChan := make(chan tapi.Chattable, 10)
+	go tracker.Start(ctx, writeChan)
+	bot.Start(ctx, writeChan)
+
+	slog.Info("Telegram Bot Gracefully shut down")
+}
+
+func setupApp(cfg *config.Config) (*telegram.TelegramBot, *service.Tracker) {
 	courseRepo := repositories.NewCourseRepo(cfg.APIConfig.CourseURL, 10*time.Minute)
 	subscriptionRepo := repositories.NewSQLiteSubscriptionRepo("./data/subscriptions.db")
 	bot := telegram.NewTelegramBot(cfg.EnvStage, cfg.BotConfig, 5, courseRepo, subscriptionRepo)
 	tracker := service.NewTracker(courseRepo, subscriptionRepo, 10*time.Minute)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	return bot, tracker
+}
+
+func gracefullShutdown(cancel context.CancelFunc) {
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM, syscall.SIGPIPE)
 	go func() {
@@ -35,16 +58,4 @@ func main() {
 		slog.Info("Received shutdown signal", "signal", sig)
 		cancel()
 	}()
-
-	slog.Info("Telegram Bot Started...",
-		"BOT Name", bot.BotAPI.Self.FirstName,
-		"stage", cfg.EnvStage,
-		"cources url", cfg.APIConfig.CourseURL,
-		"semester name", courseRepo.SemesterName)
-
-	writeChan := make(chan tapi.Chattable, 10)
-	go tracker.Start(ctx, writeChan)
-	bot.Start(ctx, writeChan)
-
-	slog.Info("Telegram Bot Gracefully shut down")
 }

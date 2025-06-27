@@ -68,7 +68,6 @@ func (r *CourseRepository) Parse() error {
 	r.LastTimeParsed = time.Now()
 	r.SemesterName = semesterName
 	r.SectionAbbrList = sectionAbbrList
-	slog.Debug("Parsed courses", "len(sectionAbbrList)", len(sectionAbbrList))
 	slog.Info("Courses parsed successfully")
 	return nil
 }

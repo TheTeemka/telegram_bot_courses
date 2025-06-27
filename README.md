@@ -1,45 +1,44 @@
 # Telegram Course Enrollment Bot 🎓
 
-A Telegram bot that provides real-time insights about class enrollments, including current enrollment numbers, available seats, and section details.
+A Telegram bot that delivers real-time updates on university course enrollments, including current numbers, available seats, and section details. Users can subscribe to courses and receive notifications when spots become available.
 
 ## Features
 
-- 🔍 Real-time course enrollment status
-- 📌 Course subscription system
-- 👀 Section-wise enrollment details
-- 🔄 Auto-updates every 10 minutes
-- 💾 Persistent storage with SQLite
+- 🔍 Live course enrollment tracking
+- 📬 Subscribe/unsubscribe to course sections
+- 👀 Detailed section-wise enrollment info
+- 🔄 Automatic updates every 10 minutes
+- 💾 Persistent subscriptions with SQLite
 
 ## Commands
 
-- `/start` - Get started with the Course Bot
-- `/subscribe COURSE` - Subscribe to a course (e.g. `/subscribe CSCI 151`)
-- `/unsubscribe COURSE` - Unsubscribe from a course
-- `/list` - View your subscribed courses with interactive buttons
-- `/showall` - View detailed info for all subscribed courses
+- `/start` — Welcome and usage instructions
+- `/subscribe COURSE [SECTION ...]` — Subscribe to a course and optional sections (e.g. `/subscribe CSCI151 1L 2CLb`)
+- `/unsubscribe COURSE` — Unsubscribe from a course
+- `/list` — Show your current subscriptions with interactive buttons
 
-## Setup
+## Getting Started
 
-1. Install dependencies:
-```bash
-go mod download
-```
+1. **Install dependencies:**
+    ```bash
+    go mod download
+    ```
 
-2. Create `.env` file:
-```env
-TELEGRAM_BOT_TOKEN=your_bot_token
-TELEGRAM_ADMIN_ID=your_admin_id
-COURSES_API_URL=your_api_url
-```
+2. **Create a `.env` file:**
+    ```env
+    TELEGRAM_BOT_TOKEN=your_bot_token
+    TELEGRAM_ADMIN_IDS=123456789,987654321
+    COURSES_API_URL=https://your-university.edu/courses.xls
+    ```
 
-3. Run the bot:
-```bash
-go run cmd/api/main.go
-```
+3. **Run the bot:**
+    ```bash
+    go run cmd/api/main.go
+    ```
 
 ## Configuration
 
-The bot uses environment variables for configuration:
-- `TELEGRAM_BOT_TOKEN`: Your Telegram bot token from BotFather
-- `TELEGRAM_ADMIN_ID`: Your Telegram user ID
-- `COURSES_API_URL`: API endpoint for course data
+Set these environment variables in your `.env` file:
+- `TELEGRAM_BOT_TOKEN`: Telegram bot token from BotFather
+- `TELEGRAM_ADMIN_IDS`: Comma-separated list of admin Telegram user IDs
+- `COURSES_API_URL`: URL to the XLS file or API endpoint with course data
