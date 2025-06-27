@@ -7,20 +7,21 @@ import (
 	"time"
 
 	"github.com/TheTeemka/telegram_bot_cources/internal/repositories"
+	"github.com/TheTeemka/telegram_bot_cources/internal/ticker"
 	tapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 type Tracker struct {
 	courseRepo       *repositories.CourseRepository
 	subscriptionRepo repositories.CourseSubscriptionRepository
-	ticker           *time.Ticker
+	ticker           *ticker.DynamicTicker
 }
 
 func NewTracker(courseRepo *repositories.CourseRepository, subscriptionRepo repositories.CourseSubscriptionRepository, d time.Duration) *Tracker {
 	return &Tracker{
 		courseRepo:       courseRepo,
 		subscriptionRepo: subscriptionRepo,
-		ticker:           time.NewTicker(d),
+		ticker:           ticker.NewDynamicTicker(),
 	}
 }
 

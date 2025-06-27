@@ -42,7 +42,7 @@ func main() {
 }
 
 func setupApp(cfg *config.Config) (*telegram.TelegramBot, *service.Tracker) {
-	courseRepo := repositories.NewCourseRepo(cfg.APIConfig.CourseURL, 10*time.Minute)
+	courseRepo := repositories.NewCourseRepo(cfg.APIConfig.CourseURL)
 	subscriptionRepo := repositories.NewSQLiteSubscriptionRepo("./data/subscriptions.db")
 	bot := telegram.NewTelegramBot(cfg.EnvStage, cfg.BotConfig, 5, courseRepo, subscriptionRepo)
 	tracker := service.NewTracker(courseRepo, subscriptionRepo, 10*time.Minute)

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/TheTeemka/telegram_bot_cources/internal/models"
+	"github.com/TheTeemka/telegram_bot_cources/internal/ticker"
 	"github.com/shakinm/xlsReader/xls"
 	"github.com/shakinm/xlsReader/xls/structure"
 )
@@ -24,16 +25,16 @@ type CourseRepository struct {
 	Courses        map[string]models.Course
 	LastTimeParsed time.Time
 	mutex          sync.RWMutex
-	ticker         *time.Ticker
+	ticker         *ticker.DynamicTicker
 
 	SectionAbbrList []string
 }
 
-func NewCourseRepo(coursesAPIURL string, duration time.Duration) *CourseRepository {
+func NewCourseRepo(coursesAPIURL string) *CourseRepository {
 	r := &CourseRepository{
 		CoursesAPIURL: coursesAPIURL,
 		Courses:       map[string]models.Course{},
-		ticker:        time.NewTicker(duration),
+		ticker:        ticker.NewDynamicTicker(),
 	}
 
 	err := r.Parse()
@@ -42,7 +43,6 @@ func NewCourseRepo(coursesAPIURL string, duration time.Duration) *CourseReposito
 		os.Exit(1)
 	}
 
-	r.ticker.Reset(duration)
 	return r
 }
 
