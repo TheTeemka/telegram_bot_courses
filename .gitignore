@@ -5,3 +5,5 @@ example.xls
 /data
 
 !.env.example
+
+log.json

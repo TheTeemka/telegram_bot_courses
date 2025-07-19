@@ -24,7 +24,6 @@ func main() {
 	bot, tracker := setupApp(cfg)
 
 	ctx, cancel := context.WithCancel(context.Background())
-
 	defer cancel()
 	gracefullShutdown(cancel)
 

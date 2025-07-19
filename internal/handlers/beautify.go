@@ -3,15 +3,16 @@ package handlers
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/TheTeemka/telegram_bot_cources/internal/models"
 )
 
-func (h *MessageHandler) beatify(course models.Course) string {
-	builder := strings.Builder{}
+func formatCourseInDetails(course models.Course, semesterName string, lastTimeParse time.Time) string {
+	var sb strings.Builder
 
-	builder.WriteString(fmt.Sprintf("%s\n", h.CoursesRepo.SemesterName))
-	builder.WriteString(fmt.Sprintf("%s: %s\n", course.AbbrName, course.FullName))
+	sb.WriteString(fmt.Sprintf("%s\n", semesterName))
+	sb.WriteString(fmt.Sprintf("%s: %s\n", course.AbbrName, course.FullName))
 
 	course.Sections = models.SortSections(course.Sections)
 
@@ -19,17 +20,30 @@ func (h *MessageHandler) beatify(course models.Course) string {
 	for _, section := range course.Sections {
 		if s != trimNumbersFromPrefix(section.SectionName) {
 			s = trimNumbersFromPrefix(section.SectionName)
-			builder.WriteRune('\n')
+			sb.WriteRune('\n')
 		}
-		if section.Size >= section.Cap {
-			builder.WriteString(fmt.Sprintf("•   ~%-7s \\(%d/%d\\)~\n", section.SectionName, section.Size, section.Cap))
-		} else {
-			builder.WriteString(fmt.Sprintf("•   %-7s \\(%d/%d\\)\n", section.SectionName, section.Size, section.Cap))
-		}
-	}
-	builder.WriteString(h.CoursesRepo.LastTimeParsed.Format("\n_\\Last Updated on:  15:04:05 02\\.01\\.2006 _"))
 
-	return builder.String()
+		sb.WriteString(formatSection(section.SectionName, section.Size, section.Cap))
+	}
+	sb.WriteString(lastTimeParse.Format("\n_\\Last Updated on:  15:04:05 02\\.01\\.2006 _"))
+
+	return sb.String()
+}
+
+func formatSection(sectionName string, sectionSize, sectionCap int) string {
+	if sectionSize >= sectionCap {
+		return (fmt.Sprintf("•   ~%-7s \\(%d/%d\\)~\n", sectionName, sectionSize, sectionCap))
+	} else {
+		return (fmt.Sprintf("•   %-7s \\(%d/%d\\)\n", sectionName, sectionSize, sectionCap))
+	}
+}
+
+func formatCourseSection(courseName, sectionName string, sectionSize, sectionCap int) string {
+	if sectionSize >= sectionCap {
+		return (fmt.Sprintf("•   ~%-10s %-7s \\(%d/%d\\)~\n", courseName, sectionName, sectionSize, sectionCap))
+	} else {
+		return (fmt.Sprintf("•   %-10s %-7s \\(%d/%d\\)\n", courseName, sectionName, sectionSize, sectionCap))
+	}
 }
 
 func trimNumbersFromPrefix(s string) string {
