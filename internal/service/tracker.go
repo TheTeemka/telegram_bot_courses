@@ -7,20 +7,21 @@ import (
 	"time"
 
 	"github.com/TheTeemka/telegram_bot_cources/internal/repositories"
+	"github.com/TheTeemka/telegram_bot_cources/internal/ticker"
 	tapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 type Tracker struct {
 	courseRepo       *repositories.CourseRepository
 	subscriptionRepo repositories.CourseSubscriptionRepository
-	ticker           *time.Ticker
+	ticker           *ticker.DynamicTicker
 }
 
 func NewTracker(courseRepo *repositories.CourseRepository, subscriptionRepo repositories.CourseSubscriptionRepository, d time.Duration) *Tracker {
 	return &Tracker{
 		courseRepo:       courseRepo,
 		subscriptionRepo: subscriptionRepo,
-		ticker:           time.NewTicker(d),
+		ticker:           ticker.NewDynamicTicker(),
 	}
 }
 
@@ -44,12 +45,12 @@ func (t *Tracker) Start(ctx context.Context, writeChan chan<- tapi.Chattable) {
 				sect, exists := t.courseRepo.GetSection(sub.Course, sub.Section)
 				if !exists {
 					writeChan <- immediateMessage(sub.TelegramID,
-						fmt.Sprintf("%s %s available anymore", sub.Course, sub.Section))
+						fmt.Sprintf("%s %s is not aviable anymore", sub.Course, sub.Section))
 				}
 
 				if sub.IsFull && sect.Size < sect.Cap {
 					writeChan <- immediateMessage(sub.TelegramID,
-						fmt.Sprintf("%s %s is available //(%d/%d//)",
+						fmt.Sprintf("%s %s has free places //(%d/%d//)",
 							sub.Course, sub.Section, sect.Size, sect.Cap))
 
 					sub.IsFull = false
