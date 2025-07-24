@@ -11,6 +11,7 @@ import (
 )
 
 type MessageHandler struct {
+	StateRepo                    repositories.StateRepository
 	CoursesRepo                  *repositories.CourseRepository
 	CourseSubscriptionRepository repositories.CourseSubscriptionRepository
 	AdminID                      []int64
@@ -18,7 +19,9 @@ type MessageHandler struct {
 	welcomeText string
 }
 
-func NewMessageHandler(adminID []int64, coursesRepo *repositories.CourseRepository, subscriptionRepo repositories.CourseSubscriptionRepository) *MessageHandler {
+func NewMessageHandler(adminID []int64, coursesRepo *repositories.CourseRepository,
+	subscriptionRepo repositories.CourseSubscriptionRepository,
+	stateRepo repositories.StateRepository) *MessageHandler {
 	welcomeText := fmt.Sprintf(
 		"*Welcome to the Course Bot\\.* 🎓\n\n"+
 			"I provide real\\-time insights about class enrollments for *%s*\n\n"+
@@ -30,10 +33,11 @@ func NewMessageHandler(adminID []int64, coursesRepo *repositories.CourseReposito
 		coursesRepo.SemesterName)
 
 	return &MessageHandler{
-		CoursesRepo: coursesRepo,
 		AdminID:     adminID,
 		welcomeText: welcomeText,
 
+		CoursesRepo:                  coursesRepo,
+		StateRepo:                    stateRepo,
 		CourseSubscriptionRepository: subscriptionRepo,
 	}
 }
@@ -51,29 +55,69 @@ func (h *MessageHandler) HandleUpdate(update tapi.Update) []tapi.MessageConfig {
 	if update.Message.IsCommand() {
 		return h.HandleCommand(update.Message)
 	}
-	return h.HandleCourseCode(update.Message)
+	return h.HandleMessage(update.Message)
 }
 
+var knownCommands = []string{"start", "subscribe", "unsubscribe", "list"}
+
 func (h *MessageHandler) HandleCommand(cmd *tapi.Message) []tapi.MessageConfig {
+	mf := NewMessageFormatter(cmd.From.ID)
+	if !slices.Contains(knownCommands, cmd.Command()) {
+		return mf.ImmediateMessage("❌ Unknown command " + cmd.Command())
+	}
+
 	switch cmd.Command() {
 	case "start":
-		return h.HandleCommandStart(cmd)
-	case "subscribe":
-		return h.HandleSubscribe(cmd)
-	case "unsubscribe":
-		return h.HandleUnsubscribe(cmd)
-	// case "list":
-	// 	return h.ListSubscriptions(cmd)
+		return mf.ImmediateMessage(h.welcomeText)
 	case "list":
 		return h.ListSubscriptions(cmd)
+	}
+
+	h.StateRepo.Upsert(cmd.From.ID, cmd.Command())
+	switch cmd.Command() {
+	case "subscribe":
+		return mf.ImmediateMessage("Please provide a course code as in docs\\.\nFormat: `[Course Name] [Course Sections]`\\.\nExample: \\'PHYS 161 2L 3L\\' \\| \\'phys 161 2l 1plb 1l\\'\\.")
+	case "unsubscribe":
+		return mf.ImmediateMessage("Please provide a course code as in docs\\.\nFormat: `[Course Name]`\\.\nExample: \\'PHYS161\\'\\.")
 	default:
 		return h.HandleCommandUnknown(cmd)
 	}
 }
 
+func (h *MessageHandler) HandleMessage(msg *tapi.Message) []tapi.MessageConfig {
+	mf := NewMessageFormatter(msg.From.ID)
+
+	state, err := h.StateRepo.GetState(msg.From.ID)
+	if err != nil {
+		slog.Error("Failed to get state for user", "user_id", msg.From.ID, "error", err)
+		return mf.ImmediateMessage("⚠️ Failed to retrieve your state\\. Please try again later\\.")
+	}
+
+	err = h.StateRepo.Upsert(msg.From.ID, "")
+	if err != nil {
+		slog.Error("Failed to clear state for user", "user_id", msg.From.ID, "error", err)
+		return mf.ImmediateMessage("⚠️ Failed to clear your state\\. Please try again later\\.")
+	}
+
+	switch state {
+	case "":
+		return h.HandleCourseCode(msg)
+	case "start":
+		return h.HandleCommandStart(msg)
+	case "subscribe":
+		return h.HandleSubscribe(msg)
+	case "unsubscribe":
+		return h.HandleUnsubscribe(msg)
+	case "list":
+		return h.ListSubscriptions(msg)
+	default:
+		return h.HandleCommandUnknown(msg) //TODO: panic
+	}
+}
+
 func (h *MessageHandler) HandleSubscribe(cmd *tapi.Message) []tapi.MessageConfig {
 	mf := NewMessageFormatter(cmd.From.ID)
-	courseName, sectionNames, ok := h.parseCommandArguments(cmd.CommandArguments())
+	courseName, sectionNames, ok := h.parseCommandArguments(cmd.Text)
 	if !ok {
 		return mf.ImmediateMessage("Please provide a course code\\. Example: `/subscribe [Course Name] [Course Sections].`\\.")
 	}
@@ -95,6 +139,7 @@ func (h *MessageHandler) HandleSubscribe(cmd *tapi.Message) []tapi.MessageConfig
 }
 
 func (h *MessageHandler) parseCommandArguments(args string) (string, []string, bool) {
+	slog.Debug("Parsing command arguments", "args", args)
 	fields := strings.Fields(args)
 	if len(fields) < 2 {
 		return "", nil, false
@@ -110,6 +155,7 @@ func (h *MessageHandler) parseCommandArguments(args string) (string, []string, b
 		return "", nil, false
 	}
 
+	slog.Debug("Parsed course name", "courseName", courseName, "index", ind)
 	var section []string
 	for i := ind; i < len(fields); i++ {
 		if !isDigit(fields[i][0]) {
@@ -118,6 +164,7 @@ func (h *MessageHandler) parseCommandArguments(args string) (string, []string, b
 			section = append(section, fields[i])
 		}
 	}
+	slog.Debug("Parsing command arguments", "section", section)
 
 	for i := range section {
 		sec, ok := StandartizeSectionName(section[i], h.CoursesRepo.SectionAbbrList)
@@ -136,7 +183,7 @@ func isDigit(b byte) bool {
 
 func (h *MessageHandler) HandleUnsubscribe(cmd *tapi.Message) []tapi.MessageConfig {
 	mf := NewMessageFormatter(cmd.From.ID)
-	courseName := cmd.CommandArguments()
+	courseName := cmd.Text
 	if courseName == "" {
 		return mf.ImmediateMessage("Please provide a course code\\. Example: `/unsubscribe [Course Name].`\\.")
 	}
@@ -210,7 +257,7 @@ func (h *MessageHandler) HandleCourseCode(updateMsg *tapi.Message) []tapi.Messag
 func (h *MessageHandler) HandleCommandUnknown(cmd *tapi.Message) []tapi.MessageConfig {
 	mf := NewMessageFormatter(cmd.From.ID)
 
-	return mf.ImmediateMessage(fmt.Sprintf("⚠️ Invalid command \\(/%s\\)", cmd.Command()))
+	return mf.ImmediateMessage(fmt.Sprintf("⚠️ Unknown State \\(/%s\\)", cmd.Command()))
 }
 
 func (h *MessageHandler) HandleCommandStart(cmd *tapi.Message) []tapi.MessageConfig {

@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"bytes"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"log/slog"
@@ -92,6 +93,7 @@ func (r *CourseRepository) GetSection(courseName, SectionName string) (models.Se
 		err := r.Parse()
 		if err != nil {
 			slog.Error("Failed to parse courses", "error", err)
+
 		}
 	}
 
@@ -123,7 +125,13 @@ func fetch(url string) ([]byte, error) {
 	buf := new(bytes.Buffer)
 
 	if url != "" {
-		resp, err := http.Get(url)
+		client := &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			},
+		}
+
+		resp, err := client.Get(url)
 		if err != nil {
 			panic(err)
 		}

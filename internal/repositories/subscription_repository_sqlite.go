@@ -4,39 +4,32 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/TheTeemka/telegram_bot_cources/internal/models"
 	_ "github.com/mattn/go-sqlite3"
 )
 
+type CourseSubscriptionRepository interface {
+	Subscribe(int64, string, []string) error
+	GetSubscriptions(int64) ([]*models.CourseSubscription, error)
+	GetAll() ([]*models.CourseSubscription, error)
+	Update(*models.CourseSubscription) error
+	UnSubscribe(int64, string) error
+	ClearSubscriptions(int64) error
+}
+
 type sqliteSubscriptionRepo struct {
 	db *sql.DB
 }
 
-func NewSQLiteSubscriptionRepo(dbPath string) CourseSubscriptionRepository {
-	dir := filepath.Dir(dbPath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		panic(fmt.Errorf("creating directory for database: %w", err))
-	}
-
-	db, err := sql.Open("sqlite3", dbPath)
-	if err != nil {
-		panic(fmt.Errorf("opening database: %w", err))
-	}
-
-	if err := db.Ping(); err != nil {
-		panic(fmt.Errorf("pinging database: %w", err))
-	}
-
-	_, err = db.Exec(`
+func NewSQLiteSubscriptionRepo(db *sql.DB) CourseSubscriptionRepository {
+	_, err := db.Exec(`
         CREATE TABLE IF NOT EXISTS subscriptions (
             telegram_id INTEGER NOT NULL,
             course TEXT NOT NULL,
 			section TEXT NOT NULL, 
-            added_at  DATETIME NOT NULL,
+            created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at DATETIME ,
 			is_full BOOLEAN DEFAULT FALSE,
             PRIMARY KEY (telegram_id, course, section)
@@ -52,7 +45,7 @@ func NewSQLiteSubscriptionRepo(dbPath string) CourseSubscriptionRepository {
 
 func (r *sqliteSubscriptionRepo) Subscribe(telegramID int64, course string, sections []string) error {
 	query := `
-		INSERT OR REPLACE INTO subscriptions (telegram_id, course, section,  added_at)
+		INSERT OR REPLACE INTO subscriptions (telegram_id, course, section, updated_at)
         VALUES (?, ?, ?, ?)
     `
 	tx, err := r.db.BeginTx(context.Background(), nil)
@@ -81,7 +74,7 @@ func (r *sqliteSubscriptionRepo) UnSubscribe(userID int64, course string) error 
 		WHERE telegram_id = ? AND course = ?
     `
 
-	_, err := r.db.Exec(query, userID, course, time.Now())
+	_, err := r.db.Exec(query, userID, course)
 	if err != nil {
 		return fmt.Errorf("unsubscring subscription from all sections: %w", err)
 	}
@@ -95,7 +88,7 @@ func (r *sqliteSubscriptionRepo) ClearSubscriptions(userID int64) error {
 		WHERE telegram_id = ? 
     `
 
-	_, err := r.db.Exec(query, userID, time.Now())
+	_, err := r.db.Exec(query, userID)
 	if err != nil {
 		return fmt.Errorf("clearing subscription from all cources: %w", err)
 	}
@@ -108,7 +101,7 @@ func (r *sqliteSubscriptionRepo) GetSubscriptions(userID int64) ([]*models.Cours
         SELECT telegram_id, course, section, is_full
         FROM subscriptions
         WHERE telegram_id = ?
-        ORDER BY added_at DESC
+        ORDER BY updated_at DESC
     `, userID)
 
 	if err != nil {

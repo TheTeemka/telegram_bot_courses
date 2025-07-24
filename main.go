@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/TheTeemka/telegram_bot_cources/internal/config"
+	"github.com/TheTeemka/telegram_bot_cources/internal/database"
 	"github.com/TheTeemka/telegram_bot_cources/internal/repositories"
 	"github.com/TheTeemka/telegram_bot_cources/internal/service"
 	"github.com/TheTeemka/telegram_bot_cources/internal/telegram"
@@ -42,9 +43,13 @@ func main() {
 }
 
 func setupApp(cfg *config.Config) (*telegram.TelegramBot, *service.Tracker) {
+	db := database.NewSQLiteDB("./data/db.db")
+
 	courseRepo := repositories.NewCourseRepo(cfg.APIConfig.CourseURL, 10*time.Minute)
-	subscriptionRepo := repositories.NewSQLiteSubscriptionRepo("./data/subscriptions.db")
-	bot := telegram.NewTelegramBot(cfg.EnvStage, cfg.BotConfig, 5, courseRepo, subscriptionRepo)
+	subscriptionRepo := repositories.NewSQLiteSubscriptionRepo(db)
+	stateRepo := repositories.NewStateRepository(db)
+
+	bot := telegram.NewTelegramBot(cfg.EnvStage, cfg.BotConfig, 5, courseRepo, subscriptionRepo, stateRepo)
 	tracker := service.NewTracker(courseRepo, subscriptionRepo, 10*time.Minute)
 
 	return bot, tracker

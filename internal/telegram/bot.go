@@ -18,7 +18,10 @@ type TelegramBot struct {
 	workerNum int
 }
 
-func NewTelegramBot(stage string, cfg config.BotConfig, workerNum int, coursesRepo *repositories.CourseRepository, subscriptionRepo repositories.CourseSubscriptionRepository) *TelegramBot {
+func NewTelegramBot(stage string, cfg config.BotConfig, workerNum int,
+	coursesRepo *repositories.CourseRepository,
+	subscriptionRepo repositories.CourseSubscriptionRepository,
+	stateRepo repositories.StateRepository) *TelegramBot {
 	bot, err := tapi.NewBotAPI(cfg.Token)
 	if err != nil {
 		slog.Error("Failed to create Telegram Bot", "error", err)
@@ -31,7 +34,7 @@ func NewTelegramBot(stage string, cfg config.BotConfig, workerNum int, coursesRe
 
 	return &TelegramBot{
 		BotAPI:         bot,
-		MessageHandler: handlers.NewMessageHandler(cfg.AdminID, coursesRepo, subscriptionRepo),
+		MessageHandler: handlers.NewMessageHandler(cfg.AdminID, coursesRepo, subscriptionRepo, stateRepo),
 		workerNum:      workerNum,
 	}
 }
