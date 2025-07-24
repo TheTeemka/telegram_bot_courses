@@ -18,20 +18,38 @@ type TelegramBot struct {
 	workerNum int
 }
 
-func NewTelegramBot(stage string, cfg config.BotConfig, workerNum int, coursesRepo *repositories.CourseRepository, subscriptionRepo repositories.CourseSubscriptionRepository) *TelegramBot {
+func NewTelegramBot(stage string, cfg config.BotConfig, workerNum int,
+	coursesRepo *repositories.CourseRepository,
+	subscriptionRepo repositories.CourseSubscriptionRepository,
+	stateRepo repositories.StateRepository) *TelegramBot {
 	bot, err := tapi.NewBotAPI(cfg.Token)
 	if err != nil {
 		slog.Error("Failed to create Telegram Bot", "error", err)
 		os.Exit(1)
 	}
+	commands := []tapi.BotCommand{
+		{Command: "start", Description: "Start the bot"},
+		{Command: "subscribe", Description: "Subscribe to a course"},
+		{Command: "unsubscribe", Description: "Unsubscribe from a course"},
+		{Command: "list", Description: "List your subscriptions"},
+	}
 
+	res, err := bot.Request(tapi.NewSetMyCommands(commands...))
+	if err != nil {
+		slog.Error("Failed to set bot commands", "error", err)
+		os.Exit(1)
+	} else if !res.Ok {
+		slog.Error("Failed to set bot commands", "desc", res.Description)
+		os.Exit(1)
+
+	}
 	// if stage == "dev" {
 	// 	bot.Debug = true
 	// }
 
 	return &TelegramBot{
 		BotAPI:         bot,
-		MessageHandler: handlers.NewMessageHandler(cfg.AdminID, coursesRepo, subscriptionRepo),
+		MessageHandler: handlers.NewMessageHandler(cfg.AdminID, coursesRepo, subscriptionRepo, stateRepo),
 		workerNum:      workerNum,
 	}
 }

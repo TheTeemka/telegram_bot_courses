@@ -1,8 +1,8 @@
 dev:
-	go run -race cmd/api/main.go --stage=dev --private --example-data
+	go run -race main.go --stage=dev --private --example-data
 
 devJQ:
-	go run -race cmd/api/main.go --stage=dev --private --example-data | jq
+	go run -race main.go --stage=dev --private --example-data | jq
 
 prod: 
-	go run cmd/api/main.go --stage=prod
+	go run main.go --stage=prod
