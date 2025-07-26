@@ -25,7 +25,7 @@ func formatCourseInDetails(course models.Course, semesterName string, lastTimePa
 
 		sb.WriteString(formatSection(section.SectionName, section.Size, section.Cap))
 	}
-	sb.WriteString(lastTimeParse.Format("\n_\\Last Updated on:  15:04:05 02\\.01\\.2006 _"))
+	sb.WriteString(lastTimeParse.Format("\n_\\Last Update on:  15:04:05 02\\.01\\.2006 _"))
 
 	return sb.String()
 }
