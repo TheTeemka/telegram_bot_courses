@@ -16,6 +16,8 @@ type CourseSubscriptionRepository interface {
 	GetAll() ([]*models.CourseSubscription, error)
 	Update(*models.CourseSubscription) error
 	UnSubscribe(int64, string) error
+	UnSubscribeSection(int64, string, string) error
+
 	ClearSubscriptions(int64) error
 }
 
@@ -33,7 +35,9 @@ func NewSQLiteSubscriptionRepo(db *sql.DB) CourseSubscriptionRepository {
 			updated_at DATETIME ,
 			is_full BOOLEAN DEFAULT FALSE,
             PRIMARY KEY (telegram_id, course, section)
-        )
+        );
+		CREATE INDEX IF NOT EXISTS idx_subscriptions_telegram_id ON subscriptions(telegram_id);
+    	CREATE INDEX IF NOT EXISTS idx_subscriptions_course ON subscriptions(course);
     `)
 
 	if err != nil {
@@ -72,6 +76,20 @@ func (r *sqliteSubscriptionRepo) UnSubscribe(userID int64, course string) error 
 	query := `
 		DELETE FROM subscriptions 
 		WHERE telegram_id = ? AND course = ?
+    `
+
+	_, err := r.db.Exec(query, userID, course)
+	if err != nil {
+		return fmt.Errorf("unsubscring subscription from all sections: %w", err)
+	}
+
+	return nil
+}
+
+func (r *sqliteSubscriptionRepo) UnSubscribeSection(userID int64, course string, section string) error {
+	query := `
+		DELETE FROM subscriptions 
+		WHERE telegram_id = ? AND course = ? AND section = ?
     `
 
 	_, err := r.db.Exec(query, userID, course)

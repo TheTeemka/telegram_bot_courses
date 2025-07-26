@@ -25,12 +25,12 @@ func NewMessageHandler(adminID []int64, coursesRepo *repositories.CourseReposito
 	welcomeText := fmt.Sprintf(
 		"*Welcome to the Course Bot\\.* 🎓\n\n"+
 			"I provide real\\-time insights about class enrollments for *%s*\n\n"+
-			"Simply send me a course code \\(e\\.g\\. *CSCI 151*\\) to get:\n"+
+			"Simply send me a course code \\(e\\.g\\. *PHYS 161*\\) to get:\n"+
 			"• Current enrollment numbers\n"+
 			"• Available seats\n"+
 			"• Section details\n\n"+
 			"Also provides opportunity to track course status by subscription system with notifications\n\n"+
-			"_Updates every 60/30/15/5 minutes \\( the closer to registration the more frequent updates will be\\)_",
+			"_Updates every 60/30/15/5 minutes \n\\[The closer to registration the more frequent updates will be\\]_",
 		coursesRepo.SemesterName)
 
 	return &MessageHandler{
@@ -43,10 +43,10 @@ func NewMessageHandler(adminID []int64, coursesRepo *repositories.CourseReposito
 	}
 }
 
-func (h *MessageHandler) HandleUpdate(update tapi.Update) []tapi.MessageConfig {
-	// if update.CallbackQuery != nil {
-	// 	return h.HandleCallback(update.CallbackQuery)
-	// }
+func (h *MessageHandler) HandleUpdate(update tapi.Update) []tapi.Chattable {
+	if update.CallbackQuery != nil {
+		return h.HandleCallback(update.CallbackQuery)
+	}
 
 	if update.Message == nil {
 		return nil
@@ -55,12 +55,22 @@ func (h *MessageHandler) HandleUpdate(update tapi.Update) []tapi.MessageConfig {
 	if update.Message.IsCommand() {
 		return AuthAdmin(h.AdminID, h.HandleCommand)(update.Message)
 	}
-	return h.HandleMessage(update.Message)
+	return AuthAdmin(h.AdminID, h.HandleMessage)(update.Message)
 }
 
-var knownCommands = []string{"start", "subscribe", "unsubscribe", "list"}
+var knownCommands = []string{"start", "subscribe", "unsubscribe", "list", "gatekeep", "donate"}
 
-func (h *MessageHandler) HandleCommand(cmd *tapi.Message) []tapi.MessageConfig {
+func (h *MessageHandler) CommandsList() tapi.SetMyCommandsConfig {
+	return tapi.NewSetMyCommands(
+		tapi.BotCommand{Command: "start", Description: "Start the bot"},
+		tapi.BotCommand{Command: "subscribe", Description: "Subscribe to a course"},
+		tapi.BotCommand{Command: "unsubscribe", Description: "Unsubscribe from a course"},
+		tapi.BotCommand{Command: "list", Description: "List your subscriptions"},
+		tapi.BotCommand{Command: "gatekeep", Description: "gatekeep your course and section of choice"},
+		tapi.BotCommand{Command: "donate", Description: "Donate to the bot"},
+	)
+}
+func (h *MessageHandler) HandleCommand(cmd *tapi.Message) []tapi.Chattable {
 	mf := NewMessageFormatter(cmd.From.ID)
 	if !slices.Contains(knownCommands, cmd.Command()) {
 		return mf.ImmediateMessage("❌ Unknown command " + cmd.Command())
@@ -71,20 +81,24 @@ func (h *MessageHandler) HandleCommand(cmd *tapi.Message) []tapi.MessageConfig {
 		return mf.ImmediateMessage(h.welcomeText)
 	case "list":
 		return h.ListSubscriptions(cmd)
+	case "gatekeep":
+		return mf.ImmediateMessage("\\[Still in Development\\] \nFor a totally modest fee of 10 doners, you can unleash your inner gatekeeper and accidentally block others from registering for your dream courses\\. Will it work\\? Who knows\\! Do we offer refunds\\? Absolutely not\\.")
+	case "donate":
+		return mf.ImmediateMessage("\\[Still in Development\\] \n Toss a coin to your humble bot, O student of fate, \nWhen rivals draw near, and the registration deadline won’t wait\\.\nA humble donation, a whisper, a nudge,\nTo tilt odds in your favor in timetable wars")
 	}
 
 	h.StateRepo.Upsert(cmd.From.ID, cmd.Command())
 	switch cmd.Command() {
 	case "subscribe":
-		return mf.ImmediateMessage("Please provide a course code as in docs\\.\nFormat: `[Course Name] [Course Sections]`\\.\nExample: \\'PHYS 161 2L 3L\\' \\| \\'phys 161 2l 1plb 1l\\'\\.")
+		return mf.ImmediateMessage("Please provide a course abbr and section as in docs\\.\nFormat: `[Course Name] [Course Sections]`\\.\nExample: \\'PHYS 161 2L 1PLB 2R 2r 3plb 3L\\' \\.")
 	case "unsubscribe":
-		return mf.ImmediateMessage("Please provide a course code as in docs\\.\nFormat: `[Course Name]`\\.\nExample: \\'PHYS161\\'\\.")
+		return mf.ImmediateMessage("Please provide a course abbr as in docs\\.\nFormat: `[Course Name]`\\.\nExample: \\'PHYS161\\'\\.")
 	default:
 		return h.HandleCommandUnknown(cmd)
 	}
 }
 
-func (h *MessageHandler) HandleMessage(msg *tapi.Message) []tapi.MessageConfig {
+func (h *MessageHandler) HandleMessage(msg *tapi.Message) []tapi.Chattable {
 	mf := NewMessageFormatter(msg.From.ID)
 
 	state, err := h.StateRepo.GetState(msg.From.ID)
@@ -115,15 +129,15 @@ func (h *MessageHandler) HandleMessage(msg *tapi.Message) []tapi.MessageConfig {
 	}
 }
 
-func (h *MessageHandler) HandleSubscribe(cmd *tapi.Message) []tapi.MessageConfig {
+func (h *MessageHandler) HandleSubscribe(cmd *tapi.Message) []tapi.Chattable {
 	mf := NewMessageFormatter(cmd.From.ID)
 	courseName, sectionNames, ok := h.parseCommandArguments(cmd.Text)
 	if !ok {
-		return mf.ImmediateMessage("❌ Provided invalid course code\\`\\.")
+		return mf.InvalidCourseCode(cmd.Text)
 	}
 
 	if _, exists := h.CoursesRepo.GetCourse(courseName); !exists {
-		return mf.ImmediateMessage(fmt.Sprintf("❌ Course *%s* not found", courseName))
+		return mf.NotFoundCourse(courseName)
 	}
 
 	err := h.CourseSubscriptionRepository.Subscribe(cmd.From.ID, courseName, sectionNames)
@@ -167,7 +181,6 @@ func (h *MessageHandler) parseCommandArguments(args string) (string, []string, b
 			section = append(section, fields[i])
 		}
 	}
-	slog.Debug("Parsing command arguments", "section", section)
 
 	for i := range section {
 		sec, ok := StandartizeSectionName(section[i], h.CoursesRepo.SectionAbbrList)
@@ -176,6 +189,7 @@ func (h *MessageHandler) parseCommandArguments(args string) (string, []string, b
 		}
 		section[i] = sec
 	}
+	slog.Debug("Parsing command arguments", "section", section)
 	return StandartizeCourseName(courseName), section, true //TODO: Section ToUpper
 
 }
@@ -184,15 +198,15 @@ func isDigit(b byte) bool {
 	return '0' <= rune(b) && rune(b) <= '9'
 }
 
-func (h *MessageHandler) HandleUnsubscribe(cmd *tapi.Message) []tapi.MessageConfig {
+func (h *MessageHandler) HandleUnsubscribe(cmd *tapi.Message) []tapi.Chattable {
 	mf := NewMessageFormatter(cmd.From.ID)
 	courseName := cmd.Text
 	if courseName == "" {
-		return mf.ImmediateMessage("❌ Provided invalid course code.`\\.")
+		return mf.InvalidCourseCode(courseName)
 	}
 
 	if _, exists := h.CoursesRepo.GetCourse(courseName); !exists {
-		return mf.ImmediateMessage(fmt.Sprintf("Course *%s* not found", courseName))
+		return mf.NotFoundCourse(courseName)
 	}
 
 	err := h.CourseSubscriptionRepository.UnSubscribe(cmd.From.ID, courseName)
@@ -207,7 +221,7 @@ func (h *MessageHandler) HandleUnsubscribe(cmd *tapi.Message) []tapi.MessageConf
 	return mf.ImmediateMessage(fmt.Sprintf("✅ Successfully unsubscribed from *%s*", courseName))
 }
 
-func (h *MessageHandler) Clear(cmd *tapi.Message) []tapi.MessageConfig {
+func (h *MessageHandler) Clear(cmd *tapi.Message) []tapi.Chattable {
 	mf := NewMessageFormatter(cmd.From.ID)
 
 	err := h.CourseSubscriptionRepository.ClearSubscriptions(cmd.From.ID)
@@ -221,16 +235,15 @@ func (h *MessageHandler) Clear(cmd *tapi.Message) []tapi.MessageConfig {
 	return mf.ImmediateMessage(("✅ Successfully cleared"))
 }
 
-func (h *MessageHandler) ListSubscriptions(cmd *tapi.Message) []tapi.MessageConfig {
+func (h *MessageHandler) ListSubscriptions(cmd *tapi.Message) []tapi.Chattable {
 	mf := NewMessageFormatter(cmd.From.ID)
-
 	subs, err := h.CourseSubscriptionRepository.GetSubscriptions(cmd.From.ID)
 	if err != nil {
-		slog.Error("⚠️  Failed to get subscriptions", "err", err)
-		return mf.ImmediateMessage("⚠️  Failed to retrieve your subscriptions\\. Please try again later\\.")
+		slog.Error("⚠️ Failed to get subscriptions", "err", err)
+		return mf.ImmediateMessage("⚠️ Failed to retrieve your subscriptions\\. Please try again later\\.")
 	}
 	if len(subs) == 0 {
-		return mf.ImmediateMessage("You haven't subscribed to any courses yet\\.")
+		return mf.ImmediateMessage("⚠️ You haven't subscribed to any courses yet\\.")
 	}
 
 	var sb strings.Builder
@@ -238,22 +251,38 @@ func (h *MessageHandler) ListSubscriptions(cmd *tapi.Message) []tapi.MessageConf
 	for _, sub := range subs {
 		_, exists := h.CoursesRepo.GetCourse(sub.Course)
 		if !exists {
-			sb.WriteString(fmt.Sprintf("❌ Course '*%s*' not found\n", sub.Course))
+			mf.AddString(fmt.Sprintf("❌ Course '*%s*' not found\n", sub.Course))
+			ignore := "delete"
+			unsubscribe := fmt.Sprintf("unsubscribe_%s;delete", sub.Course)
+			mf.AddKeyboardToLastMessage([][]tapi.InlineKeyboardButton{
+				{
+					{Text: "Ignore", CallbackData: &ignore},
+					{Text: "Unsubscribe", CallbackData: &unsubscribe},
+				},
+			})
 			continue
 		}
 
 		section, exists := h.CoursesRepo.GetSection(sub.Course, sub.Section)
 		if !exists {
-			sb.WriteString(fmt.Sprintf("❌ Course '*%s*' Section '*%s*' not found\n", sub.Course, sub.Section))
+			mf.AddString(fmt.Sprintf("❌ Course '*%s*' Section '*%s*' not found\n", sub.Course, sub.Section))
+			ignore := "delete"
+			unsubscribe := fmt.Sprintf("unsubscribe_%s_%s;delete", sub.Course, sub.Section)
+			mf.AddKeyboardToLastMessage([][]tapi.InlineKeyboardButton{
+				{
+					{Text: "Ignore", CallbackData: &ignore},
+					{Text: "Unsubscribe", CallbackData: &unsubscribe},
+				},
+			})
 		} else {
 			sb.WriteString(formatCourseSection(sub.Course, sub.Section, section.Size, section.Cap))
 		}
 	}
-
-	return mf.ImmediateMessage(sb.String())
+	mf.AddString(sb.String())
+	return mf.Messages()
 }
 
-func (h *MessageHandler) HandleCourseCode(updateMsg *tapi.Message) []tapi.MessageConfig {
+func (h *MessageHandler) HandleCourseCode(updateMsg *tapi.Message) []tapi.Chattable {
 	mf := NewMessageFormatter(updateMsg.From.ID)
 
 	courseAbbr := StandartizeCourseName(updateMsg.Text)
@@ -261,76 +290,57 @@ func (h *MessageHandler) HandleCourseCode(updateMsg *tapi.Message) []tapi.Messag
 	slog.Debug("Received course code", "courseName", courseAbbr, "exists", exists)
 
 	if !exists {
-		return mf.ImmediateMessage(fmt.Sprintf("❌ Course '*%s*' not found", courseAbbr))
+		return mf.NotFoundCourse(courseAbbr)
 	}
 
 	return mf.ImmediateMessage(formatCourseInDetails(course, h.CoursesRepo.SemesterName, h.CoursesRepo.LastTimeParsed))
 }
 
-func (h *MessageHandler) HandleCommandUnknown(cmd *tapi.Message) []tapi.MessageConfig {
+func (h *MessageHandler) HandleCommandUnknown(cmd *tapi.Message) []tapi.Chattable {
 	mf := NewMessageFormatter(cmd.From.ID)
 
 	return mf.ImmediateMessage(fmt.Sprintf("⚠️ Unknown State \\(/%s\\)", cmd.Command()))
 }
 
-func (h *MessageHandler) HandleCommandStart(cmd *tapi.Message) []tapi.MessageConfig {
+func (h *MessageHandler) HandleCommandStart(cmd *tapi.Message) []tapi.Chattable {
 	mf := NewMessageFormatter(cmd.From.ID)
 
 	return mf.ImmediateMessage(h.welcomeText)
 }
 
-// func (h *MessageHandler) HandleCallback(callback *tapi.CallbackQuery) []tapi.MessageConfig {
-// 	mf := NewMessageFormatter(callback.From.ID)
+func (h *MessageHandler) HandleCallback(callback *tapi.CallbackQuery) []tapi.Chattable {
+	mf := NewMessageFormatter(callback.From.ID)
 
-// 	args := strings.Split(callback.Data, "_")
-// 	if len(args) != 2 {
-// 		return mf.ImmediateMessage("⚠️ Invalid callback data format")
-// 	}
-// 	action := args[0]
-// 	courseAbbr := args[1]
+	cmds := strings.Split(callback.Data, ";")
 
-// 	switch action {
-// 	case "show":
-// 		course, exists := h.CoursesRepo.GetCourse(courseAbbr)
-// 		if !exists {
-// 			mf.AddString(fmt.Sprintf("Course '*%s*' not found", courseAbbr))
-// 		} else {
-// 			mf.AddString(h.beatify(course))
-// 		}
-// 	case "unsubscribe":
-// 		err := h.CourseSubscriptionRepository.UnSubscribe(callback.From.ID, courseAbbr)
-// 		if err != nil {
-// 			mf.AddString("Failed to unsubscribe from the course\\. Please try again\\.")
-// 		} else {
-// 			mf.AddString(fmt.Sprintf("✅ Successfully unsubscribed from *%s*", courseAbbr))
-// 		}
-// 	default:
-// 		mf.AddString("⚠️ Unknown action in callback data")
-// 	}
+	for _, cmd := range cmds {
+		args := strings.Split(cmd, "_")
 
-// 	return mf.messages
-// }
+		switch args[0] {
+		case "delete":
+			deleteCFG := tapi.NewDeleteMessage(callback.From.ID, callback.Message.MessageID)
+			mf.Add(deleteCFG)
+		case "unsubscribe":
+			if len(args) == 2 {
+				err := h.CourseSubscriptionRepository.UnSubscribe(
+					callback.From.ID, args[1],
+				)
+				if err != nil {
+					slog.Error("Failed to unsubscribe", "error", err, "course", args[1])
+				}
+			} else if len(args) == 3 {
+				err := h.CourseSubscriptionRepository.UnSubscribeSection(
+					callback.From.ID, args[1], args[2],
+				)
+				if err != nil {
+					slog.Error("Failed to unsubscribe", "error", err, "course", args[1], "section", args[2])
+				}
+			} else {
+				slog.Error("Invalid ignore command format", "command", cmd)
+				continue
+			}
+		}
+	}
 
-// func (h *MessageHandler) ListSubscriptions(cmd *tapi.Message) []tapi.MessageConfig {
-// 	mf := NewMessageFormatter(cmd.From.ID)
-// 	subs := h.CourseSubscriptionRepository.GetSubscriptions(cmd.From.ID)
-// 	if len(subs) == 0 {
-// 		return mf.ImmediateMessage("You haven't subscribed to any courses yet\\.")
-// 	}
-
-// 	mf.AddString("*Your subscriptions:*\n")
-// 	for _, sub := range subs {
-// 		mf.AddString(fmt.Sprintf("•  *%s %s*", sub.Course, sub.Section))
-// 		callbackSub := fmt.Sprintf("show_%s_%s", sub.Course, sub.Section)
-// 		callbackUnSub := fmt.Sprintf("unsubscribe_%s_%s", sub.Course, sub.Section)
-
-// 		mf.AddKeyboardToLastMessage([][]tapi.InlineKeyboardButton{
-// 			{
-// 				{Text: "ℹ️ Show", CallbackData: &callbackSub},
-// 				{Text: "❌ Unsubscribe", CallbackData: &callbackUnSub},
-// 			},
-// 		})
-// 	}
-
-// 	return mf.Messages()
-// }
+	return mf.messages
+}

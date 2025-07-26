@@ -45,7 +45,7 @@ func (t *Tracker) Start(ctx context.Context, writeChan chan<- tapi.Chattable) {
 				sect, exists := t.courseRepo.GetSection(sub.Course, sub.Section)
 				if !exists {
 					writeChan <- immediateMessage(sub.TelegramID,
-						fmt.Sprintf("%s %s is not aviable anymore", sub.Course, sub.Section))
+						fmt.Sprintf("%s %s is not available anymore", sub.Course, sub.Section))
 				}
 
 				if sub.IsFull && sect.Size < sect.Cap {
