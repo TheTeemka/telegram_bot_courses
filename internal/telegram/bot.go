@@ -30,7 +30,7 @@ func NewTelegramBot(stage string, cfg config.BotConfig, workerNum int,
 		os.Exit(1)
 	}
 
-	handler := handlers.NewMessageHandler(cfg.AdminID, coursesRepo, subscriptionRepo, stateRepo)
+	handler := handlers.NewMessageHandler(cfg.AdminID, cfg.IsPrivate, coursesRepo, subscriptionRepo, stateRepo)
 
 	res, err := bot.Request(handler.CommandsList())
 	if err != nil {
@@ -43,7 +43,7 @@ func NewTelegramBot(stage string, cfg config.BotConfig, workerNum int,
 
 	return &TelegramBot{
 		BotAPI:         bot,
-		MessageHandler: handlers.NewMessageHandler(cfg.AdminID, coursesRepo, subscriptionRepo, stateRepo),
+		MessageHandler: handler,
 		workerNum:      workerNum,
 	}
 }

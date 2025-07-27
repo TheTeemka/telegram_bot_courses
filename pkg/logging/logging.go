@@ -1,6 +1,7 @@
 package logging
 
 import (
+	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -12,6 +13,10 @@ const (
 )
 
 func SetSlog(stage string) {
+	logFile, err := os.OpenFile("filename.log", os.O_RDWR|os.O_CREATE, 0644)
+	if err != nil {
+		panic(err)
+	}
 	var l slog.Level
 	switch stage {
 	case StageDev:
@@ -22,7 +27,7 @@ func SetSlog(stage string) {
 		panic("Unknown stage")
 	}
 
-	h := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+	h := slog.NewJSONHandler(io.MultiWriter(os.Stdout, logFile), &slog.HandlerOptions{
 		Level:     l,
 		AddSource: stage == StageDev,
 		ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {

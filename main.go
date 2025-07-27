@@ -44,7 +44,7 @@ func main() {
 func setupApp(cfg *config.Config) (*telegram.TelegramBot, *service.Tracker) {
 	db := database.NewSQLiteDB("./data/db.db")
 
-	courseRepo := repositories.NewCourseRepo(cfg.APIConfig.CourseURL)
+	courseRepo := repositories.NewCourseRepo(cfg.APIConfig.CourseURL, cfg.APIConfig.IsExampleData)
 	subscriptionRepo := repositories.NewSQLiteSubscriptionRepo(db)
 	stateRepo := repositories.NewStateRepository(db)
 

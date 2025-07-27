@@ -3,6 +3,7 @@ package repositories
 import (
 	"bytes"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -20,22 +21,25 @@ import (
 )
 
 type CourseRepository struct {
-	CoursesAPIURL string
-	SemesterName  string
+	CoursesURL    string
+	IsExampleData bool
 
-	Courses        map[string]*models.Course
-	LastTimeParsed time.Time
-	mutex          sync.RWMutex
-	ticker         *ticker.DynamicTicker
-
+	Courses         map[string]*models.Course
+	LastTimeParsed  time.Time
+	SemesterName    string
 	SectionAbbrList []string
+
+	mutex  sync.RWMutex
+	ticker *ticker.DynamicTicker
 }
 
-func NewCourseRepo(coursesAPIURL string) *CourseRepository {
+func NewCourseRepo(coursesAPIURL string, isExampleData bool) *CourseRepository {
 	r := &CourseRepository{
-		CoursesAPIURL: coursesAPIURL,
-		Courses:       map[string]*models.Course{},
-		ticker:        ticker.NewDynamicTicker(),
+		CoursesURL:    coursesAPIURL,
+		IsExampleData: isExampleData,
+
+		Courses: map[string]*models.Course{},
+		ticker:  ticker.NewDynamicTicker(),
 	}
 
 	err := r.Parse()
@@ -47,20 +51,24 @@ func NewCourseRepo(coursesAPIURL string) *CourseRepository {
 	return r
 }
 
-func (r *CourseRepository) Watch() {
-	for range r.ticker.C {
-		if err := r.Parse(); err != nil {
-			slog.Error("Failed to parse courses", "error", err)
-			continue
-		}
-	}
-}
+// func (r *CourseRepository) Watch() {
+// 	for range r.ticker.C {
+// 		if err := r.Parse(); err != nil {
+// 			slog.Error("Failed to parse courses", "error", err)
+// 			continue
+// 		}
+// 	}
+// }
 
 func (r *CourseRepository) Parse() error {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
-	semesterName, cources, sectionAbbrList, err := ParseCourses(r.CoursesAPIURL)
+	if r.IsExampleData {
+		return r.ParseExampleData()
+	}
+
+	semesterName, cources, sectionAbbrList, err := ParseCourses(r.CoursesURL)
 	if err != nil {
 		return err
 	}
@@ -70,6 +78,45 @@ func (r *CourseRepository) Parse() error {
 	r.SemesterName = semesterName
 	r.SectionAbbrList = sectionAbbrList
 	slog.Info("Courses parsed successfully")
+	return nil
+
+}
+
+func (r *CourseRepository) ParseExampleData() error {
+	if r.SemesterName != "" {
+		return nil
+	}
+
+	var b []byte
+	file, err := os.Open("example.xls")
+	if err != nil {
+
+		if !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("opening example file: %w", err)
+		}
+		b, err = fetch(r.CoursesURL)
+		file, err = os.Create("example.xls")
+		if err != nil {
+			return nil
+		}
+		file.Write(b)
+	} else {
+		byt := new(bytes.Buffer)
+		io.Copy(byt, file)
+		b = byt.Bytes()
+	}
+
+	semesterName, cources, sectionAbbrList, err := parseXLS(bytes.NewReader(b))
+	r.SemesterName = semesterName
+	r.Courses = cources
+	r.SectionAbbrList = sectionAbbrList
+	stat, err := file.Stat()
+	if err != nil {
+		return nil
+	}
+	r.LastTimeParsed = stat.ModTime()
+	slog.Info("Example Courses parsed successfully")
+
 	return nil
 }
 
@@ -124,32 +171,22 @@ func ParseCourses(url string) (string, map[string]*models.Course, []string, erro
 func fetch(url string) ([]byte, error) {
 	buf := new(bytes.Buffer)
 
-	if url != "" {
-		client := &http.Client{
-			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-			},
-		}
-
-		resp, err := client.Get(url)
-		if err != nil {
-			panic(err)
-		}
-		if resp.StatusCode != http.StatusOK {
-			return nil, fmt.Errorf("Bad response status: %s", resp.Status)
-		}
-		defer resp.Body.Close()
-
-		io.Copy(buf, resp.Body)
-	} else {
-		f, err := os.Open("example.xls")
-		if err != nil {
-			return nil, err
-		}
-		defer f.Close()
-
-		io.Copy(buf, f)
+	client := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		},
 	}
+
+	resp, err := client.Get(url)
+	if err != nil {
+		panic(err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("Bad response status: %s", resp.Status)
+	}
+	defer resp.Body.Close()
+
+	io.Copy(buf, resp.Body)
 
 	return buf.Bytes(), nil
 }
@@ -176,10 +213,7 @@ func parseXLS(file io.ReadSeeker) (string, map[string]*models.Course, []string, 
 	sectionName := make(map[string]bool)
 	for _, row := range rows {
 		abbrName, err := GetString(row.GetCol(2)) //Course Abbr
-		if err != nil {
-			continue
-		}
-		if len(abbrName) == 0 {
+		if err != nil || len(abbrName) == 0 {
 			continue
 		}
 

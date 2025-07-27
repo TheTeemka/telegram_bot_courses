@@ -16,12 +16,15 @@ type Config struct {
 }
 
 type BotConfig struct {
-	Token   string
-	AdminID []int64
+	Token     string
+	AdminID   []int64
+	WorkerNum int
+	IsPrivate bool
 }
 
 type APIConfig struct {
-	CourseURL string
+	IsExampleData bool
+	CourseURL     string
 }
 
 // envStage = {"dev", "prod"}
@@ -39,21 +42,23 @@ func LoadConfig() *Config {
 	cfg := &Config{
 		EnvStage: *stage,
 		BotConfig: BotConfig{
-			Token: os.Getenv("TELEGRAM_BOT_TOKEN"),
+			Token:     os.Getenv("TELEGRAM_BOT_TOKEN"),
+			IsPrivate: *private,
 		},
+		APIConfig: APIConfig{
+			IsExampleData: *exampleData,
+			CourseURL:     os.Getenv("COURCES_API_URL"),
+		},
+	}
+
+	if cfg.APIConfig.CourseURL == "" {
+		panic("COURCES_API_URL environment variable is not set")
 	}
 
 	if *private {
 		cfg.BotConfig.AdminID = parseInt64Array(os.Getenv("TELEGRAM_ADMIN_ID"))
 		if len(cfg.BotConfig.AdminID) == 0 {
 			panic("TELEGRAM_ADMIN_ID environment variable is not set or invalid")
-		}
-	}
-
-	if !*exampleData {
-		cfg.APIConfig.CourseURL = os.Getenv("COURCES_API_URL")
-		if cfg.APIConfig.CourseURL == "" {
-			panic("COURCES_API_URL environment variable is not set")
 		}
 	}
 

@@ -14,12 +14,14 @@ type MessageHandler struct {
 	StateRepo                    repositories.StateRepository
 	CoursesRepo                  *repositories.CourseRepository
 	CourseSubscriptionRepository repositories.CourseSubscriptionRepository
-	AdminID                      []int64
+
+	Private bool
+	AdminID []int64
 
 	welcomeText string
 }
 
-func NewMessageHandler(adminID []int64, coursesRepo *repositories.CourseRepository,
+func NewMessageHandler(adminID []int64, private bool, coursesRepo *repositories.CourseRepository,
 	subscriptionRepo repositories.CourseSubscriptionRepository,
 	stateRepo repositories.StateRepository) *MessageHandler {
 	welcomeText := fmt.Sprintf(
@@ -34,7 +36,9 @@ func NewMessageHandler(adminID []int64, coursesRepo *repositories.CourseReposito
 		coursesRepo.SemesterName)
 
 	return &MessageHandler{
-		AdminID:     adminID,
+		AdminID: adminID,
+		Private: private,
+
 		welcomeText: welcomeText,
 
 		CoursesRepo:                  coursesRepo,
@@ -52,10 +56,18 @@ func (h *MessageHandler) HandleUpdate(update tapi.Update) []tapi.Chattable {
 		return nil
 	}
 
-	if update.Message.IsCommand() {
-		return AuthAdmin(h.AdminID, h.HandleCommand)(update.Message)
+	if h.Private {
+		if update.Message.IsCommand() {
+			return AuthAdmin(h.AdminID, h.HandleCommand)(update.Message)
+		}
+		return AuthAdmin(h.AdminID, h.HandleMessage)(update.Message)
 	}
-	return AuthAdmin(h.AdminID, h.HandleMessage)(update.Message)
+
+	if update.Message.IsCommand() {
+		return h.HandleCommand(update.Message)
+	}
+	return h.HandleMessage(update.Message)
+
 }
 
 var knownCommands = []string{"start", "subscribe", "unsubscribe", "list", "gatekeep", "donate"}
