@@ -8,7 +8,7 @@ import (
 	"github.com/TheTeemka/telegram_bot_cources/internal/models"
 )
 
-func formatCourseInDetails(course models.Course, semesterName string, lastTimeParse time.Time) string {
+func formatCourseInDetails(course *models.Course, semesterName string, lastTimeParse time.Time) string {
 	var sb strings.Builder
 
 	sb.WriteString(fmt.Sprintf("%s\n", semesterName))

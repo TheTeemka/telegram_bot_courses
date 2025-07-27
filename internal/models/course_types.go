@@ -8,7 +8,7 @@ import (
 type Course struct {
 	FullName string
 	AbbrName string
-	Sections []Section
+	Sections []*Section
 }
 
 type Section struct {
@@ -18,8 +18,8 @@ type Section struct {
 	Cap         int
 }
 
-func SortSections(sections []Section) []Section {
-	slices.SortFunc(sections, func(a, b Section) int {
+func SortSections(sections []*Section) []*Section {
+	slices.SortFunc(sections, func(a, b *Section) int {
 		atrim, btrim := trimNumbersFromPrefix(a.SectionName), trimNumbersFromPrefix(b.SectionName)
 		if atrim == btrim {
 			an, bn := getPrefixNumbers(a.SectionName), getPrefixNumbers(b.SectionName)

@@ -137,7 +137,7 @@ func (h *MessageHandler) HandleSubscribe(cmd *tapi.Message) []tapi.Chattable {
 	}
 
 	if _, exists := h.CoursesRepo.GetCourse(courseName); !exists {
-		return mf.NotFoundCourse(courseName)
+		return mf.ImmediateNotFoundCourse(courseName)
 	}
 
 	err := h.CourseSubscriptionRepository.Subscribe(cmd.From.ID, courseName, sectionNames)
@@ -206,7 +206,7 @@ func (h *MessageHandler) HandleUnsubscribe(cmd *tapi.Message) []tapi.Chattable {
 	}
 
 	if _, exists := h.CoursesRepo.GetCourse(courseName); !exists {
-		return mf.NotFoundCourse(courseName)
+		return mf.ImmediateNotFoundCourse(courseName)
 	}
 
 	err := h.CourseSubscriptionRepository.UnSubscribe(cmd.From.ID, courseName)
@@ -251,7 +251,7 @@ func (h *MessageHandler) ListSubscriptions(cmd *tapi.Message) []tapi.Chattable {
 	for _, sub := range subs {
 		_, exists := h.CoursesRepo.GetCourse(sub.Course)
 		if !exists {
-			mf.AddString(fmt.Sprintf("❌ Course '*%s*' not found\n", sub.Course))
+			mf.AddNotFoundCourse(sub.Course)
 			ignore := "delete"
 			unsubscribe := fmt.Sprintf("unsubscribe_%s;delete", sub.Course)
 			mf.AddKeyboardToLastMessage([][]tapi.InlineKeyboardButton{
@@ -265,7 +265,7 @@ func (h *MessageHandler) ListSubscriptions(cmd *tapi.Message) []tapi.Chattable {
 
 		section, exists := h.CoursesRepo.GetSection(sub.Course, sub.Section)
 		if !exists {
-			mf.AddString(fmt.Sprintf("❌ Course '*%s*' Section '*%s*' not found\n", sub.Course, sub.Section))
+			mf.AddNotFoundCourseSection(sub.Course, sub.Section)
 			ignore := "delete"
 			unsubscribe := fmt.Sprintf("unsubscribe_%s_%s;delete", sub.Course, sub.Section)
 			mf.AddKeyboardToLastMessage([][]tapi.InlineKeyboardButton{
@@ -290,7 +290,7 @@ func (h *MessageHandler) HandleCourseCode(updateMsg *tapi.Message) []tapi.Chatta
 	slog.Debug("Received course code", "courseName", courseAbbr, "exists", exists)
 
 	if !exists {
-		return mf.NotFoundCourse(courseAbbr)
+		return mf.ImmediateNotFoundCourse(courseAbbr)
 	}
 
 	return mf.ImmediateMessage(formatCourseInDetails(course, h.CoursesRepo.SemesterName, h.CoursesRepo.LastTimeParsed))

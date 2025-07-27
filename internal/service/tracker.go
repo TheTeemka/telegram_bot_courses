@@ -41,11 +41,20 @@ func (t *Tracker) Start(ctx context.Context, writeChan chan<- tapi.Chattable) {
 			}
 			t.courseRepo.Parse()
 			for _, sub := range subs {
-
 				sect, exists := t.courseRepo.GetSection(sub.Course, sub.Section)
 				if !exists {
-					writeChan <- immediateMessage(sub.TelegramID,
-						fmt.Sprintf("%s %s is not available anymore", sub.Course, sub.Section))
+					msg := tapi.NewMessage(sub.TelegramID,
+						fmt.Sprintf("%s %s is not existent anymore", sub.Course, sub.Section))
+
+					ignore := "delete"
+					unsubscribe := fmt.Sprintf("unsubscribe_%s_%s;delete", sub.Course, sub.Section)
+					msg.ReplyMarkup = [][]tapi.InlineKeyboardButton{
+						{
+							{Text: "Ignore", CallbackData: &ignore},
+							{Text: "Unsubscribe", CallbackData: &unsubscribe},
+						},
+					}
+					writeChan <- msg
 				}
 
 				if sub.IsFull && sect.Size < sect.Cap {

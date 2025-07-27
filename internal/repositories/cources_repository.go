@@ -23,7 +23,7 @@ type CourseRepository struct {
 	CoursesAPIURL string
 	SemesterName  string
 
-	Courses        map[string]models.Course
+	Courses        map[string]*models.Course
 	LastTimeParsed time.Time
 	mutex          sync.RWMutex
 	ticker         *ticker.DynamicTicker
@@ -34,7 +34,7 @@ type CourseRepository struct {
 func NewCourseRepo(coursesAPIURL string) *CourseRepository {
 	r := &CourseRepository{
 		CoursesAPIURL: coursesAPIURL,
-		Courses:       map[string]models.Course{},
+		Courses:       map[string]*models.Course{},
 		ticker:        ticker.NewDynamicTicker(),
 	}
 
@@ -73,7 +73,7 @@ func (r *CourseRepository) Parse() error {
 	return nil
 }
 
-func (r *CourseRepository) GetCourse(name string) (models.Course, bool) {
+func (r *CourseRepository) GetCourse(name string) (*models.Course, bool) {
 	if time.Since(r.LastTimeParsed) > 10*time.Minute {
 		err := r.Parse()
 		if err != nil {
@@ -84,11 +84,11 @@ func (r *CourseRepository) GetCourse(name string) (models.Course, bool) {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
 
-	sections, exists := r.Courses[name]
-	return sections, exists
+	course, exists := r.Courses[name]
+	return course, exists
 }
 
-func (r *CourseRepository) GetSection(courseName, SectionName string) (models.Section, bool) {
+func (r *CourseRepository) GetSection(courseName, SectionName string) (*models.Section, bool) {
 	if time.Since(r.LastTimeParsed) > 10*time.Minute {
 		err := r.Parse()
 		if err != nil {
@@ -102,17 +102,17 @@ func (r *CourseRepository) GetSection(courseName, SectionName string) (models.Se
 
 	course, exists := r.Courses[courseName]
 	if !exists {
-		return models.Section{}, false
+		return nil, false
 	}
 	for _, section := range course.Sections {
 		if section.SectionName == SectionName {
 			return section, true
 		}
 	}
-	return models.Section{}, false
+	return nil, false
 }
 
-func ParseCourses(url string) (string, map[string]models.Course, []string, error) {
+func ParseCourses(url string) (string, map[string]*models.Course, []string, error) {
 	b, err := fetch(url)
 	if err != nil {
 		return "", nil, nil, err
@@ -154,7 +154,7 @@ func fetch(url string) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func parseXLS(file io.ReadSeeker) (string, map[string]models.Course, []string, error) {
+func parseXLS(file io.ReadSeeker) (string, map[string]*models.Course, []string, error) {
 	wb, err := xls.OpenReader(file)
 	if err != nil {
 		return "", nil, nil, err
@@ -172,7 +172,7 @@ func parseXLS(file io.ReadSeeker) (string, map[string]models.Course, []string, e
 	}
 
 	duplicates := make(map[string]bool)
-	courses := make(map[string]models.Course)
+	courses := make(map[string]*models.Course)
 	sectionName := make(map[string]bool)
 	for _, row := range rows {
 		abbrName, err := GetString(row.GetCol(2)) //Course Abbr
@@ -219,18 +219,16 @@ func parseXLS(file io.ReadSeeker) (string, map[string]models.Course, []string, e
 			if err != nil {
 				continue
 			}
-			courses[abbrName] = models.Course{
+			courses[abbrName] = &models.Course{
 				AbbrName: abbrName,
 				FullName: fullName,
 			}
 		}
 
-		if _, ok := sectionName[trimNumbersFromPrefix(section)]; !ok {
-			sectionName[trimNumbersFromPrefix(section)] = true
-		}
+		sectionName[trimNumbersFromPrefix(section)] = true
 
 		crs := courses[abbrName]
-		crs.Sections = append(crs.Sections, models.Section{
+		crs.Sections = append(crs.Sections, &models.Section{
 			SectionName: section,
 			Size:        enNum,
 			Cap:         enCap,
