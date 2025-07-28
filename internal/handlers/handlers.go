@@ -278,6 +278,7 @@ func (h *MessageHandler) ListSubscriptions(cmd *tapi.Message) []tapi.Chattable {
 			sb.WriteString(formatCourseSection(sub.Course, sub.Section, section.Size, section.Cap))
 		}
 	}
+	sb.WriteString(h.CoursesRepo.LastTimeParsed.Format("\n_\\Last Update on:  15:04:05 02\\.01\\.2006 _"))
 	mf.AddString(sb.String())
 	return mf.Messages()
 }

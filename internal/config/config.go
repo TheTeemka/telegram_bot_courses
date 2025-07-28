@@ -24,7 +24,7 @@ type APIConfig struct {
 	CourseURL string
 }
 
-// envStage = {"dev", "prod"}
+// envStage = ("dev", "prod")
 func LoadConfig() *Config {
 	stage := flag.String("stage", "dev", "Environment stage (dev, prod)")
 	private := flag.Bool("private", false, "Is the bot running in public mode? (default: false)")

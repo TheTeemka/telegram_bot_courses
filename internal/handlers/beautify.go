@@ -19,8 +19,10 @@ func formatCourseInDetails(course models.Course, semesterName string, lastTimePa
 	var s string
 	for _, section := range course.Sections {
 		if s != trimNumbersFromPrefix(section.SectionName) {
+			if s != "" {
+				sb.WriteRune('\n')
+			}
 			s = trimNumbersFromPrefix(section.SectionName)
-			sb.WriteRune('\n')
 		}
 
 		sb.WriteString(formatSection(section.SectionName, section.Size, section.Cap))
@@ -32,17 +34,17 @@ func formatCourseInDetails(course models.Course, semesterName string, lastTimePa
 
 func formatSection(sectionName string, sectionSize, sectionCap int) string {
 	if sectionSize >= sectionCap {
-		return (fmt.Sprintf("•   ~%-7s \\(%d/%d\\)~\n", sectionName, sectionSize, sectionCap))
+		return (fmt.Sprintf("• `~%-7s \\(%d/%d\\)~\n`", sectionName, sectionSize, sectionCap))
 	} else {
-		return (fmt.Sprintf("•   %-7s \\(%d/%d\\)\n", sectionName, sectionSize, sectionCap))
+		return (fmt.Sprintf("• `%-7s \\(%d/%d\\)\n`", sectionName, sectionSize, sectionCap))
 	}
 }
 
 func formatCourseSection(courseName, sectionName string, sectionSize, sectionCap int) string {
 	if sectionSize >= sectionCap {
-		return (fmt.Sprintf("•   ~%-10s %-7s \\(%d/%d\\)~\n", courseName, sectionName, sectionSize, sectionCap))
+		return (fmt.Sprintf("•` ~%-10s %-6s\\(%d/%d\\)~\n`", courseName, sectionName, sectionSize, sectionCap))
 	} else {
-		return (fmt.Sprintf("•   %-10s %-7s \\(%d/%d\\)\n", courseName, sectionName, sectionSize, sectionCap))
+		return (fmt.Sprintf("•` %-10s %-6s\\(%d/%d\\)\n`", courseName, sectionName, sectionSize, sectionCap))
 	}
 }
 
