@@ -23,14 +23,15 @@ type TelegramBot struct {
 func NewTelegramBot(stage string, cfg config.BotConfig, workerNum int,
 	coursesRepo *repositories.CourseRepository,
 	subscriptionRepo repositories.CourseSubscriptionRepository,
-	stateRepo repositories.StateRepository) *TelegramBot {
+	stateRepo repositories.StateRepository,
+	statisticsRepo *repositories.StatisticsRepository) *TelegramBot {
 	bot, err := tapi.NewBotAPI(cfg.Token)
 	if err != nil {
 		slog.Error("Failed to create Telegram Bot", "error", err)
 		os.Exit(1)
 	}
 
-	handler := handlers.NewMessageHandler(cfg.AdminID, cfg.IsPrivate, coursesRepo, subscriptionRepo, stateRepo)
+	handler := handlers.NewMessageHandler(cfg.AdminID, cfg.IsPrivate, coursesRepo, subscriptionRepo, stateRepo, statisticsRepo)
 
 	res, err := bot.Request(handler.CommandsList())
 	if err != nil {
@@ -50,7 +51,6 @@ func NewTelegramBot(stage string, cfg config.BotConfig, workerNum int,
 
 func (bot *TelegramBot) Start(ctx context.Context, writeChan <-chan tapi.Chattable) {
 	updateConfig := tapi.NewUpdate(0)
-	updateConfig.Timeout = 69
 	updateChan := bot.BotAPI.GetUpdatesChan(updateConfig)
 
 	var wg sync.WaitGroup

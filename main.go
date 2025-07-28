@@ -22,7 +22,7 @@ func main() {
 
 	logging.SetSlog(cfg.EnvStage)
 
-	bot, tracker := setupApp(cfg)
+	bot, tracker, statisticsRepo := setupApp(cfg)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -36,22 +36,24 @@ func main() {
 
 	writeChan := make(chan tapi.Chattable, 10)
 	go tracker.Start(ctx, writeChan)
+	go statisticsRepo.Run(ctx)
 	bot.Start(ctx, writeChan)
 
 	slog.Info("Telegram Bot Gracefully shut down")
 }
 
-func setupApp(cfg *config.Config) (*telegram.TelegramBot, *service.Tracker) {
+func setupApp(cfg *config.Config) (*telegram.TelegramBot, *service.Tracker, *repositories.StatisticsRepository) {
 	db := database.NewSQLiteDB("./data/db.db")
 
 	courseRepo := repositories.NewCourseRepo(cfg.APIConfig.CourseURL, cfg.APIConfig.IsExampleData)
 	subscriptionRepo := repositories.NewSQLiteSubscriptionRepo(db)
 	stateRepo := repositories.NewStateRepository(db)
+	statisticsRepo := repositories.NewStatisticsRepository(db)
 
-	bot := telegram.NewTelegramBot(cfg.EnvStage, cfg.BotConfig, 5, courseRepo, subscriptionRepo, stateRepo)
+	bot := telegram.NewTelegramBot(cfg.EnvStage, cfg.BotConfig, 5, courseRepo, subscriptionRepo, stateRepo, statisticsRepo)
 	tracker := service.NewTracker(courseRepo, subscriptionRepo, 10*time.Minute)
 
-	return bot, tracker
+	return bot, tracker, statisticsRepo
 }
 
 func gracefullShutdown(cancel context.CancelFunc) {

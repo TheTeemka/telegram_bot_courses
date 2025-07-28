@@ -11,19 +11,21 @@ import (
 )
 
 type MessageHandler struct {
-	StateRepo                    repositories.StateRepository
-	CoursesRepo                  *repositories.CourseRepository
-	CourseSubscriptionRepository repositories.CourseSubscriptionRepository
-
-	Private bool
-	AdminID []int64
+	StateRepo        repositories.StateRepository
+	CoursesRepo      *repositories.CourseRepository
+	SubscriptionRepo repositories.CourseSubscriptionRepository
+	StatisticsRepo   *repositories.StatisticsRepository
+	Private          bool
+	AdminID          []int64
 
 	welcomeText string
 }
 
-func NewMessageHandler(adminID []int64, private bool, coursesRepo *repositories.CourseRepository,
+func NewMessageHandler(adminID []int64, private bool,
+	coursesRepo *repositories.CourseRepository,
 	subscriptionRepo repositories.CourseSubscriptionRepository,
-	stateRepo repositories.StateRepository) *MessageHandler {
+	stateRepo repositories.StateRepository,
+	statisticsRepo *repositories.StatisticsRepository) *MessageHandler {
 	welcomeText := fmt.Sprintf(
 		"*Welcome to the Course Bot\\.* 🎓\n\n"+
 			"I provide real\\-time insights about class enrollments for *%s*\n\n"+
@@ -41,19 +43,21 @@ func NewMessageHandler(adminID []int64, private bool, coursesRepo *repositories.
 
 		welcomeText: welcomeText,
 
-		CoursesRepo:                  coursesRepo,
-		StateRepo:                    stateRepo,
-		CourseSubscriptionRepository: subscriptionRepo,
+		CoursesRepo:      coursesRepo,
+		StateRepo:        stateRepo,
+		SubscriptionRepo: subscriptionRepo,
+		StatisticsRepo:   statisticsRepo,
 	}
 }
 
 func (h *MessageHandler) HandleUpdate(update tapi.Update) []tapi.Chattable {
-	if update.CallbackQuery != nil {
-		return h.HandleCallback(update.CallbackQuery)
-	}
-
 	if update.Message == nil {
 		return nil
+	}
+
+	h.StatisticsRepo.AddOne("Total_Request_Number")
+	if update.CallbackQuery != nil {
+		return h.HandleCallback(update.CallbackQuery)
 	}
 
 	if h.Private {
@@ -70,7 +74,7 @@ func (h *MessageHandler) HandleUpdate(update tapi.Update) []tapi.Chattable {
 
 }
 
-var knownCommands = []string{"start", "subscribe", "unsubscribe", "list", "gatekeep", "donate"}
+var knownCommands = []string{"start", "subscribe", "unsubscribe", "list", "gatekeep", "donate", "parsestat"}
 
 func (h *MessageHandler) CommandsList() tapi.SetMyCommandsConfig {
 	return tapi.NewSetMyCommands(
@@ -82,12 +86,14 @@ func (h *MessageHandler) CommandsList() tapi.SetMyCommandsConfig {
 		tapi.BotCommand{Command: "donate", Description: "Donate to the bot"},
 	)
 }
+
 func (h *MessageHandler) HandleCommand(cmd *tapi.Message) []tapi.Chattable {
 	mf := NewMessageFormatter(cmd.From.ID)
 	if !slices.Contains(knownCommands, cmd.Command()) {
 		return mf.ImmediateMessage("❌ Unknown command " + cmd.Command())
 	}
 
+	h.StatisticsRepo.AddOne("command" + cmd.Command())
 	switch cmd.Command() {
 	case "start":
 		return mf.ImmediateMessage(h.welcomeText)
@@ -105,6 +111,13 @@ func (h *MessageHandler) HandleCommand(cmd *tapi.Message) []tapi.Chattable {
 		return mf.ImmediateMessage("Please provide a course abbr and section as in docs\\.\nFormat: `[Course Name] [Course Sections]`\\.\nExample: \\'PHYS 161 2L 1PLB 2R 2r 3plb 3L\\' \\.")
 	case "unsubscribe":
 		return mf.ImmediateMessage("Please provide a course abbr as in docs\\.\nFormat: `[Course Name]`\\.\nExample: \\'PHYS161\\'\\.")
+	case "parsestat":
+		err := h.StatisticsRepo.Upsert()
+		if err != nil {
+			return mf.ImmediateMessage("Statistics updated error\\.\n" + err.Error())
+		} else {
+			return mf.ImmediateMessage("Statistics updated successfully\\.")
+		}
 	default:
 		return h.HandleCommandUnknown(cmd)
 	}
@@ -152,7 +165,7 @@ func (h *MessageHandler) HandleSubscribe(cmd *tapi.Message) []tapi.Chattable {
 		return mf.ImmediateNotFoundCourse(courseName)
 	}
 
-	err := h.CourseSubscriptionRepository.Subscribe(cmd.From.ID, courseName, sectionNames)
+	err := h.SubscriptionRepo.Subscribe(cmd.From.ID, courseName, sectionNames)
 	if err != nil {
 		slog.Error("Failed to subscribe",
 			"error", err,
@@ -221,7 +234,7 @@ func (h *MessageHandler) HandleUnsubscribe(cmd *tapi.Message) []tapi.Chattable {
 		return mf.ImmediateNotFoundCourse(courseName)
 	}
 
-	err := h.CourseSubscriptionRepository.UnSubscribe(cmd.From.ID, courseName)
+	err := h.SubscriptionRepo.UnSubscribe(cmd.From.ID, courseName)
 	if err != nil {
 		slog.Error("Failed to subscribe",
 			"error", err,
@@ -236,7 +249,7 @@ func (h *MessageHandler) HandleUnsubscribe(cmd *tapi.Message) []tapi.Chattable {
 func (h *MessageHandler) Clear(cmd *tapi.Message) []tapi.Chattable {
 	mf := NewMessageFormatter(cmd.From.ID)
 
-	err := h.CourseSubscriptionRepository.ClearSubscriptions(cmd.From.ID)
+	err := h.SubscriptionRepo.ClearSubscriptions(cmd.From.ID)
 	if err != nil {
 		slog.Error("Failed to subscribe",
 			"error", err,
@@ -249,7 +262,7 @@ func (h *MessageHandler) Clear(cmd *tapi.Message) []tapi.Chattable {
 
 func (h *MessageHandler) ListSubscriptions(cmd *tapi.Message) []tapi.Chattable {
 	mf := NewMessageFormatter(cmd.From.ID)
-	subs, err := h.CourseSubscriptionRepository.GetSubscriptions(cmd.From.ID)
+	subs, err := h.SubscriptionRepo.GetSubscriptions(cmd.From.ID)
 	if err != nil {
 		slog.Error("⚠️ Failed to get subscriptions", "err", err)
 		return mf.ImmediateMessage("⚠️ Failed to retrieve your subscriptions\\. Please try again later\\.")
@@ -299,8 +312,7 @@ func (h *MessageHandler) HandleCourseCode(updateMsg *tapi.Message) []tapi.Chatta
 
 	courseAbbr := StandartizeCourseName(updateMsg.Text)
 	course, exists := h.CoursesRepo.GetCourse(courseAbbr)
-	slog.Debug("Received course code", "courseName", courseAbbr, "exists", exists)
-
+	h.StatisticsRepo.AddOne(courseAbbr)
 	if !exists {
 		return mf.ImmediateNotFoundCourse(courseAbbr)
 	}
@@ -334,14 +346,14 @@ func (h *MessageHandler) HandleCallback(callback *tapi.CallbackQuery) []tapi.Cha
 			mf.Add(deleteCFG)
 		case "unsubscribe":
 			if len(args) == 2 {
-				err := h.CourseSubscriptionRepository.UnSubscribe(
+				err := h.SubscriptionRepo.UnSubscribe(
 					callback.From.ID, args[1],
 				)
 				if err != nil {
 					slog.Error("Failed to unsubscribe", "error", err, "course", args[1])
 				}
 			} else if len(args) == 3 {
-				err := h.CourseSubscriptionRepository.UnSubscribeSection(
+				err := h.SubscriptionRepo.UnSubscribeSection(
 					callback.From.ID, args[1], args[2],
 				)
 				if err != nil {

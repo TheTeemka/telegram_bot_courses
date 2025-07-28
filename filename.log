@@ -1,0 +1,45 @@
+{"time":"2025-07-27T19:10:35.689496+05:00","level":"INFO","source":{"function":"github.com/TheTeemka/telegram_bot_cources/internal/repositories.(*CourseRepository).ParseExampleData","file":"cources_repository.go","line":118},"msg":"Example Courses parsed successfully"}
+{"time":"2025-07-27T19:10:36.249392+05:00","level":"INFO","source":{"function":"main.main","file":"main.go","line":31},"msg":"Telegram Bot Started...","BOT Name":"NU_Cources","stage":"dev","cources url":"https://registrar.nu.edu.kz/registrar_downloads/json?method=printDocument&name=xls_school_schedule_by_term&termid=822","semester name":"Fall 2025"}
+19:09:26.756268+05:00","level":"DEBUG","source":{"function":"github.com/TheTeemka/telegram_bot_cources/internal/handlers.(*MessageHandler).parseCommandArguments","file":"handlers.go","line":177},"msg":"Parsing command arguments","args":"math 273 1l"}
+{"time":"2025-07-27T19:09:26.756399+05:00","level":"DEBUG","source":{"function":"github.com/TheTeemka/telegram_bot_cources/internal/handlers.(*MessageHandler).parseCommandArguments","file":"handlers.go","line":189},"msg":"Parsed course name","courseName":"math273","index":2}
+{"time":"2025-07-27T19:09:26.756433+05:00","level":"DEBUG","source":{"function":"github.com/TheTeemka/telegram_bot_cources/internal/handlers.(*MessageHandler).parseCommandArguments","file":"handlers.go","line":213},"msg":"Parsing command arguments","section":["1L"]}
+    "courseName": "PHYS 161",
+    "exists": true
+}
+tal_Request_Number\": 2,\n\t\"commandlist\": 1,\n\t\"commandstatistics\": 1\n}\n",
+"ParseMode": "MarkdownV2",
+"Entities": null,
+"DisableWebPagePreview": false
+}
+}
+{
+"time": "2025-07-27T17:54:12.473913+05:00",
+"level": "INFO",
+"source": {
+"function": "main.gracefullShutdown.func1",
+"file": "main.go",
+"line": 62
+},
+"msg": "Received shutdown signal",
+"signal": 2
+}
+{
+"time": "2025-07-27T17:54:12.474381+05:00",
+"level": "INFO",
+"source": {
+"function": "github.com/TheTeemka/telegram_bot_cources/internal/service.(*Tracker).Start",
+"file": "tracker.go",
+"line": 32
+},
+"msg": "Tracker stopped"
+}
+{
+"time": "2025-07-27T17:54:12.474393+05:00",
+"level": "INFO",
+"source": {
+"function": "main.main",
+"file": "main.go",
+"line": 41
+},
+"msg": "Telegram Bot Gracefully shut down"
+}
