@@ -51,13 +51,13 @@ func NewMessageHandler(adminID []int64, private bool,
 }
 
 func (h *MessageHandler) HandleUpdate(update tapi.Update) []tapi.Chattable {
-	if update.Message == nil {
-		return nil
-	}
-
 	h.StatisticsRepo.AddOne("Total_Request_Number")
 	if update.CallbackQuery != nil {
 		return h.HandleCallback(update.CallbackQuery)
+	}
+
+	if update.Message == nil {
+		return nil
 	}
 
 	if h.Private {
@@ -112,12 +112,7 @@ func (h *MessageHandler) HandleCommand(cmd *tapi.Message) []tapi.Chattable {
 	case "unsubscribe":
 		return mf.ImmediateMessage("Please provide a course abbr as in docs\\.\nFormat: `[Course Name]`\\.\nExample: \\'PHYS161\\'\\.")
 	case "parsestat":
-		err := h.StatisticsRepo.Upsert()
-		if err != nil {
-			return mf.ImmediateMessage("Statistics updated error\\.\n" + err.Error())
-		} else {
-			return mf.ImmediateMessage("Statistics updated successfully\\.")
-		}
+		return AuthAdmin(h.AdminID, h.parsestat)(cmd)
 	default:
 		return h.HandleCommandUnknown(cmd)
 	}
@@ -163,6 +158,12 @@ func (h *MessageHandler) HandleSubscribe(cmd *tapi.Message) []tapi.Chattable {
 
 	if _, exists := h.CoursesRepo.GetCourse(courseName); !exists {
 		return mf.ImmediateNotFoundCourse(courseName)
+	}
+
+	for _, sec := range sectionNames {
+		if _, exists := h.CoursesRepo.GetSection(courseName, sec); !exists {
+			return mf.ImmediateNotFoundCourseSection(courseName, sec)
+		}
 	}
 
 	err := h.SubscriptionRepo.Subscribe(cmd.From.ID, courseName, sectionNames)
@@ -337,6 +338,7 @@ func (h *MessageHandler) HandleCallback(callback *tapi.CallbackQuery) []tapi.Cha
 
 	cmds := strings.Split(callback.Data, ";")
 
+	slog.Debug("Handling callback", "callback_data", callback.Data, "commands", cmds)
 	for _, cmd := range cmds {
 		args := strings.Split(cmd, "_")
 
@@ -367,4 +369,15 @@ func (h *MessageHandler) HandleCallback(callback *tapi.CallbackQuery) []tapi.Cha
 	}
 
 	return mf.messages
+}
+
+func (h *MessageHandler) parsestat(cmd *tapi.Message) []tapi.Chattable {
+	mf := NewMessageFormatter(cmd.From.ID)
+
+	err := h.StatisticsRepo.Upsert()
+	if err != nil {
+		return mf.ImmediateMessage("Statistics updated error\\.\n" + err.Error())
+	} else {
+		return mf.ImmediateMessage("Statistics updated successfully\\.")
+	}
 }

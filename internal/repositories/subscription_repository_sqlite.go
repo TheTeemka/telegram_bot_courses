@@ -119,7 +119,7 @@ func (r *sqliteSubscriptionRepo) GetSubscriptions(userID int64) ([]*models.Cours
         SELECT telegram_id, course, section, is_full
         FROM subscriptions
         WHERE telegram_id = ?
-        ORDER BY updated_at DESC
+        ORDER BY course ASC, section ASC
     `, userID)
 
 	if err != nil {
