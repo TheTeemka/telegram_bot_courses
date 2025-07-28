@@ -157,12 +157,12 @@ func (h *MessageHandler) HandleSubscribe(cmd *tapi.Message) []tapi.Chattable {
 	}
 
 	if _, exists := h.CoursesRepo.GetCourse(courseName); !exists {
-		return mf.ImmediateNotFoundCourse(courseName)
+		return mf.ImmediateNotFoundCourse(courseName, "for subscription")
 	}
 
 	for _, sec := range sectionNames {
 		if _, exists := h.CoursesRepo.GetSection(courseName, sec); !exists {
-			return mf.ImmediateNotFoundCourseSection(courseName, sec)
+			return mf.ImmediateNotFoundCourseSection(courseName, sec, "for subscription")
 		}
 	}
 
@@ -232,7 +232,7 @@ func (h *MessageHandler) HandleUnsubscribe(cmd *tapi.Message) []tapi.Chattable {
 	}
 
 	if _, exists := h.CoursesRepo.GetCourse(courseName); !exists {
-		return mf.ImmediateNotFoundCourse(courseName)
+		return mf.ImmediateNotFoundCourse(courseName, "for unsubscribing")
 	}
 
 	err := h.SubscriptionRepo.UnSubscribe(cmd.From.ID, courseName)
@@ -315,7 +315,7 @@ func (h *MessageHandler) HandleCourseCode(updateMsg *tapi.Message) []tapi.Chatta
 	course, exists := h.CoursesRepo.GetCourse(courseAbbr)
 	h.StatisticsRepo.AddOne(courseAbbr)
 	if !exists {
-		return mf.ImmediateNotFoundCourse(courseAbbr)
+		return mf.ImmediateNotFoundCourse(courseAbbr, "")
 	}
 
 	return mf.ImmediateMessage(formatCourseInDetails(course, h.CoursesRepo.SemesterName, h.CoursesRepo.LastTimeParsed))

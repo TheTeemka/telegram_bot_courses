@@ -46,8 +46,11 @@ func (mf *MessageFormatter) AddKeyboardToLastMessage(keyboard [][]tapi.InlineKey
 	mf.messages[len(mf.messages)-1] = msgCfg
 }
 
-func (mf *MessageFormatter) ImmediateNotFoundCourse(courseAbbr string) []tapi.Chattable {
-	msg := tapi.NewMessage(mf.chatID, fmt.Sprintf("❌ Course *%s* not found", tapi.EscapeText(tapi.ModeMarkdownV2, courseAbbr)))
+func (mf *MessageFormatter) ImmediateNotFoundCourse(courseAbbr string, action string) []tapi.Chattable {
+	msg := tapi.NewMessage(mf.chatID, fmt.Sprintf("❌ Course *%s* not found %s",
+		tapi.EscapeText(tapi.ModeMarkdownV2, courseAbbr),
+		tapi.EscapeText(tapi.ModeMarkdownV2, action),
+	))
 	msg.ParseMode = tapi.ModeMarkdownV2
 	return []tapi.Chattable{msg}
 }
@@ -58,10 +61,11 @@ func (mf *MessageFormatter) AddNotFoundCourse(courseAbbr string) {
 	mf.messages = append(mf.messages, msg)
 }
 
-func (mf *MessageFormatter) ImmediateNotFoundCourseSection(courseAbbr string, section string) []tapi.Chattable {
-	msg := tapi.NewMessage(mf.chatID, fmt.Sprintf("❌ Course *%s* Section *%s* not found",
+func (mf *MessageFormatter) ImmediateNotFoundCourseSection(courseAbbr string, section string, action string) []tapi.Chattable {
+	msg := tapi.NewMessage(mf.chatID, fmt.Sprintf("❌ Course *%s* Section *%s* not found %s",
 		tapi.EscapeText(tapi.ModeMarkdownV2, courseAbbr),
 		tapi.EscapeText(tapi.ModeMarkdownV2, section),
+		tapi.EscapeText(tapi.ModeMarkdownV2, action),
 	))
 	msg.ParseMode = tapi.ModeMarkdownV2
 	return []tapi.Chattable{msg}
