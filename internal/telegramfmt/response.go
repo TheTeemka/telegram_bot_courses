@@ -1,4 +1,4 @@
-package handlers
+package telegramfmt
 
 import (
 	"fmt"
@@ -80,8 +80,24 @@ func (mf *MessageFormatter) AddNotFoundCourseSection(courseAbbr string, section 
 	mf.messages = append(mf.messages, msg)
 }
 
-func (mf *MessageFormatter) InvalidCourseCode(courseAbbr string) []tapi.Chattable {
-	msg := tapi.NewMessage(mf.chatID, fmt.Sprintf("❌ Provided invalid course code \\'%s\\'.", tapi.EscapeText(tapi.ModeMarkdownV2, courseAbbr)))
-	msg.ParseMode = tapi.ModeMarkdownV2
-	return []tapi.Chattable{msg}
+func (mf *MessageFormatter) UnsubscribeOrIgnoreSection(courseAbbr string, section string) {
+	ignore := "delete"
+	unsubscribe := fmt.Sprintf("unsubscribe_%s_%s;delete", courseAbbr, section)
+	mf.AddKeyboardToLastMessage([][]tapi.InlineKeyboardButton{
+		{
+			{Text: "Ignore", CallbackData: &ignore},
+			{Text: "Unsubscribe", CallbackData: &unsubscribe},
+		},
+	})
+}
+
+func (mf *MessageFormatter) UnsubscribeOrIgnoreCourse(courseAbbr string) {
+	ignore := "delete"
+	unsubscribe := fmt.Sprintf("unsubscribe_%s;delete", courseAbbr)
+	mf.AddKeyboardToLastMessage([][]tapi.InlineKeyboardButton{
+		{
+			{Text: "Ignore", CallbackData: &ignore},
+			{Text: "Unsubscribe", CallbackData: &unsubscribe},
+		},
+	})
 }

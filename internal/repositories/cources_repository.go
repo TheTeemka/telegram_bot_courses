@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/TheTeemka/telegram_bot_cources/internal/config"
 	"github.com/TheTeemka/telegram_bot_cources/internal/models"
 	"github.com/TheTeemka/telegram_bot_cources/internal/ticker"
 	"github.com/shakinm/xlsReader/xls"
@@ -31,15 +32,18 @@ type CourseRepository struct {
 
 	mutex  sync.RWMutex
 	ticker *ticker.DynamicTicker
+
+	TimeIntervalBetweenParse time.Duration
 }
 
-func NewCourseRepo(coursesAPIURL string, isExampleData bool) *CourseRepository {
+func NewCourseRepo(apiConfig config.APIConfig) *CourseRepository {
 	r := &CourseRepository{
-		CoursesURL:    coursesAPIURL,
-		IsExampleData: isExampleData,
+		CoursesURL:               apiConfig.CourseURL,
+		IsExampleData:            apiConfig.IsExampleData,
+		TimeIntervalBetweenParse: apiConfig.TimeIntervalBetweenParses,
 
 		Courses: map[string]*models.Course{},
-		ticker:  ticker.NewDynamicTicker(),
+		ticker:  ticker.NewDynamicTicker(apiConfig.TimeIntervalBetweenParses),
 	}
 
 	err := r.Parse()
@@ -61,6 +65,8 @@ func NewCourseRepo(coursesAPIURL string, isExampleData bool) *CourseRepository {
 // }
 
 func (r *CourseRepository) Parse() error {
+	slog.Info("Courses parsing")
+
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
@@ -121,7 +127,7 @@ func (r *CourseRepository) ParseExampleData() error {
 }
 
 func (r *CourseRepository) GetCourse(name string) (*models.Course, bool) {
-	if time.Since(r.LastTimeParsed) > 10*time.Minute {
+	if time.Since(r.LastTimeParsed) > r.TimeIntervalBetweenParse {
 		err := r.Parse()
 		if err != nil {
 			slog.Error("Failed to parse courses", "error", err)
@@ -136,7 +142,7 @@ func (r *CourseRepository) GetCourse(name string) (*models.Course, bool) {
 }
 
 func (r *CourseRepository) GetSection(courseName, SectionName string) (*models.Section, bool) {
-	if time.Since(r.LastTimeParsed) > 10*time.Minute {
+	if time.Since(r.LastTimeParsed) > r.TimeIntervalBetweenParse {
 		err := r.Parse()
 		if err != nil {
 			slog.Error("Failed to parse courses", "error", err)

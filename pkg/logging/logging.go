@@ -13,7 +13,7 @@ const (
 )
 
 func SetSlog(stage string) {
-	logFile, err := os.OpenFile("data/filename.log", os.O_RDWR|os.O_CREATE, 0644)
+	logFile, err := os.OpenFile("data/logging.json", os.O_RDWR|os.O_CREATE, 0644)
 	if err != nil {
 		panic(err)
 	}
@@ -28,8 +28,8 @@ func SetSlog(stage string) {
 	}
 
 	h := slog.NewJSONHandler(io.MultiWriter(os.Stdout, logFile), &slog.HandlerOptions{
-		Level:     l,
-		AddSource: stage == StageDev,
+		Level: l,
+		// AddSource: stage == StageDev,
 		ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
 			if a.Key == slog.SourceKey {
 				source, _ := a.Value.Any().(*slog.Source)

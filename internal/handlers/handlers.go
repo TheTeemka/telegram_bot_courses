@@ -1,12 +1,14 @@
 package handlers
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"slices"
 	"strings"
 
 	"github.com/TheTeemka/telegram_bot_cources/internal/repositories"
+	"github.com/TheTeemka/telegram_bot_cources/internal/telegramfmt"
 	tapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
@@ -19,9 +21,11 @@ type MessageHandler struct {
 	AdminID          []int64
 
 	welcomeText string
+
+	KaspiCard string
 }
 
-func NewMessageHandler(adminID []int64, private bool,
+func NewMessageHandler(adminID []int64, private bool, kaspiCard string,
 	coursesRepo *repositories.CourseRepository,
 	subscriptionRepo repositories.CourseSubscriptionRepository,
 	stateRepo repositories.StateRepository,
@@ -43,6 +47,7 @@ func NewMessageHandler(adminID []int64, private bool,
 
 		welcomeText: welcomeText,
 
+		KaspiCard:        kaspiCard,
 		CoursesRepo:      coursesRepo,
 		StateRepo:        stateRepo,
 		SubscriptionRepo: subscriptionRepo,
@@ -74,7 +79,7 @@ func (h *MessageHandler) HandleUpdate(update tapi.Update) []tapi.Chattable {
 
 }
 
-var knownCommands = []string{"start", "subscribe", "unsubscribe", "list", "gatekeep", "donate", "parsestat"}
+var knownCommands = []string{"start", "subscribe", "unsubscribe", "list", "donate", "parsestat"}
 
 func (h *MessageHandler) CommandsList() tapi.SetMyCommandsConfig {
 	return tapi.NewSetMyCommands(
@@ -82,13 +87,13 @@ func (h *MessageHandler) CommandsList() tapi.SetMyCommandsConfig {
 		tapi.BotCommand{Command: "subscribe", Description: "Subscribe to a course"},
 		tapi.BotCommand{Command: "unsubscribe", Description: "Unsubscribe from a course"},
 		tapi.BotCommand{Command: "list", Description: "List your subscriptions"},
-		tapi.BotCommand{Command: "gatekeep", Description: "gatekeep your course and section of choice"},
+		// tapi.BotCommand{Command: "gatekeep", Description: "gatekeep your course and section of choice"},
 		tapi.BotCommand{Command: "donate", Description: "Donate to the bot"},
 	)
 }
 
 func (h *MessageHandler) HandleCommand(cmd *tapi.Message) []tapi.Chattable {
-	mf := NewMessageFormatter(cmd.From.ID)
+	mf := telegramfmt.NewMessageFormatter(cmd.From.ID)
 	if !slices.Contains(knownCommands, cmd.Command()) {
 		return mf.ImmediateMessage("❌ Unknown command " + cmd.Command())
 	}
@@ -102,7 +107,7 @@ func (h *MessageHandler) HandleCommand(cmd *tapi.Message) []tapi.Chattable {
 	case "gatekeep":
 		return mf.ImmediateMessage("\\[Still in Development\\] \nFor a totally modest fee of 10 doners, you can unleash your inner gatekeeper and accidentally block others from registering for your dream courses\\. Will it work\\? Who knows\\! Do we offer refunds\\? Absolutely not\\.")
 	case "donate":
-		return mf.ImmediateMessage("\\[Still in Development\\] \n Toss a coin to your humble bot, O student of fate, \nWhen rivals draw near, and the registration deadline won’t wait\\.\nA humble donation, a whisper, a nudge,\nTo tilt odds in your favor in timetable wars")
+		return mf.ImmediateMessage(fmt.Sprintf("\n Toss a coin to your humble bot,\nO student of fate, \nWhen rivals draw near, and\nthe registration deadline won’t wait\\.\nA humble donation, a whisper, a nudge,\nTo tilt odds in your favor in timetable wars\n\nKaspi: `%s`\n\\[Click to the number to copy\\]", h.KaspiCard))
 	}
 
 	h.StateRepo.Upsert(cmd.From.ID, cmd.Command())
@@ -119,7 +124,7 @@ func (h *MessageHandler) HandleCommand(cmd *tapi.Message) []tapi.Chattable {
 }
 
 func (h *MessageHandler) HandleMessage(msg *tapi.Message) []tapi.Chattable {
-	mf := NewMessageFormatter(msg.From.ID)
+	mf := telegramfmt.NewMessageFormatter(msg.From.ID)
 
 	state, err := h.StateRepo.GetState(msg.From.ID)
 	if err != nil {
@@ -150,10 +155,13 @@ func (h *MessageHandler) HandleMessage(msg *tapi.Message) []tapi.Chattable {
 }
 
 func (h *MessageHandler) HandleSubscribe(cmd *tapi.Message) []tapi.Chattable {
-	mf := NewMessageFormatter(cmd.From.ID)
-	courseName, sectionNames, ok := h.parseCommandArguments(cmd.Text)
-	if !ok {
-		return mf.InvalidCourseCode(cmd.Text)
+	mf := telegramfmt.NewMessageFormatter(cmd.From.ID)
+	courseName, sectionNames, err := h.parseCommandArguments(cmd.Text)
+	if err != nil {
+		if err != ErrNotEnoughParams {
+			return mf.ImmediateMessage("❌ You haven't provided not enough arguments.")
+		}
+		return mf.ImmediateMessage("❌ You haven't provided coursename")
 	}
 
 	if _, exists := h.CoursesRepo.GetCourse(courseName); !exists {
@@ -166,7 +174,7 @@ func (h *MessageHandler) HandleSubscribe(cmd *tapi.Message) []tapi.Chattable {
 		}
 	}
 
-	err := h.SubscriptionRepo.Subscribe(cmd.From.ID, courseName, sectionNames)
+	err = h.SubscriptionRepo.Subscribe(cmd.From.ID, courseName, sectionNames)
 	if err != nil {
 		slog.Error("Failed to subscribe",
 			"error", err,
@@ -178,11 +186,11 @@ func (h *MessageHandler) HandleSubscribe(cmd *tapi.Message) []tapi.Chattable {
 	return mf.ImmediateMessage(fmt.Sprintf("✅ Successfully subscribed to *%s \\(%s\\)*", courseName, strings.Join(sectionNames, ", ")))
 }
 
-func (h *MessageHandler) parseCommandArguments(args string) (string, []string, bool) {
+func (h *MessageHandler) parseCommandArguments(args string) (string, []string, error) {
 	slog.Debug("Parsing command arguments", "args", args)
 	fields := strings.Fields(args)
 	if len(fields) < 2 {
-		return "", nil, false
+		return "", nil, errors.New("not enough fields in command arguments")
 	}
 	courseName := fields[0]
 	ind := 1
@@ -193,14 +201,14 @@ func (h *MessageHandler) parseCommandArguments(args string) (string, []string, b
 
 	slog.Debug("Parsed course name", "courseName", courseName, "index", ind)
 	if ind == len(fields) {
-		return "", nil, false
+		return "", nil, ErrNotEnoughParams
 	}
 
 	var section []string
 	for i := ind; i < len(fields); i++ {
 		if !isDigit(fields[i][0]) {
 			if len(section) == 0 {
-				return "", nil, false
+				return "", nil, InvalidParams
 			}
 			section[len(section)-1] += fields[i]
 		} else {
@@ -209,14 +217,14 @@ func (h *MessageHandler) parseCommandArguments(args string) (string, []string, b
 	}
 
 	for i := range section {
-		sec, ok := StandartizeSectionName(section[i], h.CoursesRepo.SectionAbbrList)
+		sec, ok := telegramfmt.StandartizeSectionName(section[i], h.CoursesRepo.SectionAbbrList)
 		if !ok {
-			return "", nil, false
+			return "", nil, InvalidParams
 		}
 		section[i] = sec
 	}
 	slog.Debug("Parsing command arguments", "section", section)
-	return StandartizeCourseName(courseName), section, true //TODO: Section ToUpper
+	return telegramfmt.StandartizeCourseName(courseName), section, nil
 
 }
 
@@ -225,10 +233,10 @@ func isDigit(b byte) bool {
 }
 
 func (h *MessageHandler) HandleUnsubscribe(cmd *tapi.Message) []tapi.Chattable {
-	mf := NewMessageFormatter(cmd.From.ID)
+	mf := telegramfmt.NewMessageFormatter(cmd.From.ID)
 	courseName := cmd.Text
 	if courseName == "" {
-		return mf.InvalidCourseCode(courseName)
+		return mf.ImmediateMessage("❌ You haven't provided coursename")
 	}
 
 	if _, exists := h.CoursesRepo.GetCourse(courseName); !exists {
@@ -248,7 +256,7 @@ func (h *MessageHandler) HandleUnsubscribe(cmd *tapi.Message) []tapi.Chattable {
 }
 
 func (h *MessageHandler) Clear(cmd *tapi.Message) []tapi.Chattable {
-	mf := NewMessageFormatter(cmd.From.ID)
+	mf := telegramfmt.NewMessageFormatter(cmd.From.ID)
 
 	err := h.SubscriptionRepo.ClearSubscriptions(cmd.From.ID)
 	if err != nil {
@@ -262,7 +270,7 @@ func (h *MessageHandler) Clear(cmd *tapi.Message) []tapi.Chattable {
 }
 
 func (h *MessageHandler) ListSubscriptions(cmd *tapi.Message) []tapi.Chattable {
-	mf := NewMessageFormatter(cmd.From.ID)
+	mf := telegramfmt.NewMessageFormatter(cmd.From.ID)
 	subs, err := h.SubscriptionRepo.GetSubscriptions(cmd.From.ID)
 	if err != nil {
 		slog.Error("⚠️ Failed to get subscriptions", "err", err)
@@ -278,30 +286,16 @@ func (h *MessageHandler) ListSubscriptions(cmd *tapi.Message) []tapi.Chattable {
 		_, exists := h.CoursesRepo.GetCourse(sub.Course)
 		if !exists {
 			mf.AddNotFoundCourse(sub.Course)
-			ignore := "delete"
-			unsubscribe := fmt.Sprintf("unsubscribe_%s;delete", sub.Course)
-			mf.AddKeyboardToLastMessage([][]tapi.InlineKeyboardButton{
-				{
-					{Text: "Ignore", CallbackData: &ignore},
-					{Text: "Unsubscribe", CallbackData: &unsubscribe},
-				},
-			})
+			mf.UnsubscribeOrIgnoreCourse(sub.Course)
 			continue
 		}
 
 		section, exists := h.CoursesRepo.GetSection(sub.Course, sub.Section)
 		if !exists {
 			mf.AddNotFoundCourseSection(sub.Course, sub.Section)
-			ignore := "delete"
-			unsubscribe := fmt.Sprintf("unsubscribe_%s_%s;delete", sub.Course, sub.Section)
-			mf.AddKeyboardToLastMessage([][]tapi.InlineKeyboardButton{
-				{
-					{Text: "Ignore", CallbackData: &ignore},
-					{Text: "Unsubscribe", CallbackData: &unsubscribe},
-				},
-			})
+			mf.UnsubscribeOrIgnoreSection(sub.Course, sub.Section)
 		} else {
-			sb.WriteString(formatCourseSection(sub.Course, sub.Section, section.Size, section.Cap))
+			sb.WriteString(telegramfmt.FormatCourseSection(sub.Course, sub.Section, section.Size, section.Cap))
 		}
 	}
 	mf.AddString(sb.String())
@@ -309,32 +303,32 @@ func (h *MessageHandler) ListSubscriptions(cmd *tapi.Message) []tapi.Chattable {
 }
 
 func (h *MessageHandler) HandleCourseCode(updateMsg *tapi.Message) []tapi.Chattable {
-	mf := NewMessageFormatter(updateMsg.From.ID)
+	mf := telegramfmt.NewMessageFormatter(updateMsg.From.ID)
 
-	courseAbbr := StandartizeCourseName(updateMsg.Text)
+	courseAbbr := telegramfmt.StandartizeCourseName(updateMsg.Text)
 	course, exists := h.CoursesRepo.GetCourse(courseAbbr)
 	h.StatisticsRepo.AddOne(courseAbbr)
 	if !exists {
-		return mf.ImmediateNotFoundCourse(courseAbbr, "")
+		return mf.ImmediateNotFoundCourse(courseAbbr, "for general purpose")
 	}
 
-	return mf.ImmediateMessage(formatCourseInDetails(course, h.CoursesRepo.SemesterName, h.CoursesRepo.LastTimeParsed))
+	return mf.ImmediateMessage(telegramfmt.FormatCourseInDetails(course, h.CoursesRepo.SemesterName, h.CoursesRepo.LastTimeParsed))
 }
 
 func (h *MessageHandler) HandleCommandUnknown(cmd *tapi.Message) []tapi.Chattable {
-	mf := NewMessageFormatter(cmd.From.ID)
+	mf := telegramfmt.NewMessageFormatter(cmd.From.ID)
 
 	return mf.ImmediateMessage(fmt.Sprintf("⚠️ Unknown State \\(/%s\\)", cmd.Command()))
 }
 
 func (h *MessageHandler) HandleCommandStart(cmd *tapi.Message) []tapi.Chattable {
-	mf := NewMessageFormatter(cmd.From.ID)
+	mf := telegramfmt.NewMessageFormatter(cmd.From.ID)
 
 	return mf.ImmediateMessage(h.welcomeText)
 }
 
 func (h *MessageHandler) HandleCallback(callback *tapi.CallbackQuery) []tapi.Chattable {
-	mf := NewMessageFormatter(callback.From.ID)
+	mf := telegramfmt.NewMessageFormatter(callback.From.ID)
 
 	cmds := strings.Split(callback.Data, ";")
 
@@ -368,11 +362,11 @@ func (h *MessageHandler) HandleCallback(callback *tapi.CallbackQuery) []tapi.Cha
 		}
 	}
 
-	return mf.messages
+	return mf.Messages()
 }
 
 func (h *MessageHandler) parsestat(cmd *tapi.Message) []tapi.Chattable {
-	mf := NewMessageFormatter(cmd.From.ID)
+	mf := telegramfmt.NewMessageFormatter(cmd.From.ID)
 
 	err := h.StatisticsRepo.Upsert()
 	if err != nil {

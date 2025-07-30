@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/TheTeemka/telegram_bot_cources/internal/repositories"
+	"github.com/TheTeemka/telegram_bot_cources/internal/telegramfmt"
 	"github.com/TheTeemka/telegram_bot_cources/internal/ticker"
 	tapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
@@ -17,11 +18,11 @@ type Tracker struct {
 	ticker           *ticker.DynamicTicker
 }
 
-func NewTracker(courseRepo *repositories.CourseRepository, subscriptionRepo repositories.CourseSubscriptionRepository, d time.Duration) *Tracker {
+func NewTracker(courseRepo *repositories.CourseRepository, subscriptionRepo repositories.CourseSubscriptionRepository, timeInterval time.Duration) *Tracker {
 	return &Tracker{
 		courseRepo:       courseRepo,
 		subscriptionRepo: subscriptionRepo,
-		ticker:           ticker.NewDynamicTicker(),
+		ticker:           ticker.NewDynamicTicker(timeInterval),
 	}
 }
 
@@ -41,25 +42,28 @@ func (t *Tracker) Start(ctx context.Context, writeChan chan<- tapi.Chattable) {
 			}
 			t.courseRepo.Parse()
 			for _, sub := range subs {
+				mf := telegramfmt.NewMessageFormatter(sub.TelegramID)
+				_, exists := t.courseRepo.GetCourse(sub.Course)
+				if !exists {
+					mf.AddString(fmt.Sprintf("%s %s is not existent anymore", sub.Course, sub.Section))
+					mf.UnsubscribeOrIgnoreCourse(sub.Course)
+
+					writeChan <- mf.Messages()[0]
+					continue
+				}
+
 				sect, exists := t.courseRepo.GetSection(sub.Course, sub.Section)
 				if !exists {
-					msg := tapi.NewMessage(sub.TelegramID,
-						fmt.Sprintf("%s %s is not existent anymore", sub.Course, sub.Section))
+					mf.AddString(fmt.Sprintf("%s %s is not existent anymore", sub.Course, sub.Section))
+					mf.UnsubscribeOrIgnoreSection(sub.Course, sub.Section)
 
-					ignore := "delete"
-					unsubscribe := fmt.Sprintf("unsubscribe_%s_%s;delete", sub.Course, sub.Section)
-					msg.ReplyMarkup = [][]tapi.InlineKeyboardButton{
-						{
-							{Text: "Ignore", CallbackData: &ignore},
-							{Text: "Unsubscribe", CallbackData: &unsubscribe},
-						},
-					}
-					writeChan <- msg
+					writeChan <- mf.Messages()[0]
+					continue
 				}
 
 				if sub.IsFull && sect.Size < sect.Cap {
 					writeChan <- immediateMessage(sub.TelegramID,
-						fmt.Sprintf("%s %s has free places //(%d/%d//)",
+						fmt.Sprintf("🔆 %s %s now has free places \\(%d/%d\\)",
 							sub.Course, sub.Section, sect.Size, sect.Cap))
 
 					sub.IsFull = false
@@ -71,7 +75,7 @@ func (t *Tracker) Start(ctx context.Context, writeChan chan<- tapi.Chattable) {
 
 				} else if !sub.IsFull && sect.Size >= sect.Cap {
 					writeChan <- immediateMessage(sub.TelegramID,
-						fmt.Sprintf("%s %s is full //(%d/%d//)",
+						fmt.Sprintf("🚫 %s %s is full \\(%d/%d\\)",
 							sub.Course, sub.Section, sect.Size, sect.Cap))
 
 					sub.IsFull = true

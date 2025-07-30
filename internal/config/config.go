@@ -5,6 +5,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/joho/godotenv"
 )
@@ -16,15 +17,17 @@ type Config struct {
 }
 
 type BotConfig struct {
-	Token     string
-	AdminID   []int64
-	WorkerNum int
-	IsPrivate bool
+	Token        string
+	AdminID      []int64
+	WorkerNumber int
+	IsPrivate    bool
+	KaspiCard    string
 }
 
 type APIConfig struct {
-	IsExampleData bool
-	CourseURL     string
+	IsExampleData             bool
+	CourseURL                 string
+	TimeIntervalBetweenParses time.Duration
 }
 
 // envStage = ("dev", "prod")
@@ -32,6 +35,9 @@ func LoadConfig() *Config {
 	stage := flag.String("stage", "dev", "Environment stage (dev, prod)")
 	private := flag.Bool("private", false, "Is the bot running in public mode? (default: false)")
 	exampleData := flag.Bool("example-data", false, "Load example data for testing (default: false)")
+	workerNumTelegram := flag.Int("telegram-workers", 10, "Number of Telegram workers for processing updates")
+	timeIntreval := flag.Duration("time-interval", 3*time.Hour, "Time interval between course parses")
+
 	flag.Parse()
 
 	err := godotenv.Load(".env")
@@ -42,12 +48,15 @@ func LoadConfig() *Config {
 	cfg := &Config{
 		EnvStage: *stage,
 		BotConfig: BotConfig{
-			Token:     os.Getenv("TELEGRAM_BOT_TOKEN"),
-			IsPrivate: *private,
+			Token:        os.Getenv("TELEGRAM_BOT_TOKEN"),
+			IsPrivate:    *private,
+			WorkerNumber: *workerNumTelegram,
+			KaspiCard:    os.Getenv("KASPI_CARD"),
 		},
 		APIConfig: APIConfig{
-			IsExampleData: *exampleData,
-			CourseURL:     os.Getenv("COURCES_API_URL"),
+			IsExampleData:             *exampleData,
+			CourseURL:                 os.Getenv("COURCES_API_URL"),
+			TimeIntervalBetweenParses: *timeIntreval,
 		},
 	}
 

@@ -11,4 +11,4 @@ dock_image:
 	docker build -t telegram-bot-cources .
 
 dock_run:
-	docker run -v ./data:/app/data -d --name telegram-bot-cources telegram-bot-cources ./telegram-bot 
+	docker run -v ./data:/app/data -d --name telegram-bot-cources telegram-bot-cources ./telegram-bot --private --example-data

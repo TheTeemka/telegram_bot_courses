@@ -92,7 +92,7 @@ func (r *sqliteSubscriptionRepo) UnSubscribeSection(userID int64, course string,
 		WHERE telegram_id = ? AND course = ? AND section = ?
     `
 
-	_, err := r.db.Exec(query, userID, course)
+	_, err := r.db.Exec(query, userID, course, section)
 	if err != nil {
 		return fmt.Errorf("unsubscring subscription from all sections: %w", err)
 	}

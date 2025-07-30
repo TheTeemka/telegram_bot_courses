@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/TheTeemka/telegram_bot_cources/internal/config"
 	"github.com/TheTeemka/telegram_bot_cources/internal/database"
@@ -22,7 +21,15 @@ func main() {
 
 	logging.SetSlog(cfg.EnvStage)
 
-	bot, tracker, statisticsRepo := setupApp(cfg)
+	db := database.NewSQLiteDB("./data/db.db")
+
+	courseRepo := repositories.NewCourseRepo(cfg.APIConfig)
+	subscriptionRepo := repositories.NewSQLiteSubscriptionRepo(db)
+	stateRepo := repositories.NewStateRepository(db)
+	statisticsRepo := repositories.NewStatisticsRepository(db)
+
+	bot := telegram.NewTelegramBot(cfg.EnvStage, cfg.BotConfig, courseRepo, subscriptionRepo, stateRepo, statisticsRepo)
+	tracker := service.NewTracker(courseRepo, subscriptionRepo, cfg.TimeIntervalBetweenParses)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -40,20 +47,6 @@ func main() {
 	bot.Start(ctx, writeChan)
 
 	slog.Info("Telegram Bot Gracefully shut down")
-}
-
-func setupApp(cfg *config.Config) (*telegram.TelegramBot, *service.Tracker, *repositories.StatisticsRepository) {
-	db := database.NewSQLiteDB("./data/db.db")
-
-	courseRepo := repositories.NewCourseRepo(cfg.APIConfig.CourseURL, cfg.APIConfig.IsExampleData)
-	subscriptionRepo := repositories.NewSQLiteSubscriptionRepo(db)
-	stateRepo := repositories.NewStateRepository(db)
-	statisticsRepo := repositories.NewStatisticsRepository(db)
-
-	bot := telegram.NewTelegramBot(cfg.EnvStage, cfg.BotConfig, 5, courseRepo, subscriptionRepo, stateRepo, statisticsRepo)
-	tracker := service.NewTracker(courseRepo, subscriptionRepo, 10*time.Minute)
-
-	return bot, tracker, statisticsRepo
 }
 
 func gracefullShutdown(cancel context.CancelFunc) {

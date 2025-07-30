@@ -20,7 +20,7 @@ type TelegramBot struct {
 	workerNum int
 }
 
-func NewTelegramBot(stage string, cfg config.BotConfig, workerNum int,
+func NewTelegramBot(stage string, cfg config.BotConfig,
 	coursesRepo *repositories.CourseRepository,
 	subscriptionRepo repositories.CourseSubscriptionRepository,
 	stateRepo repositories.StateRepository,
@@ -31,7 +31,7 @@ func NewTelegramBot(stage string, cfg config.BotConfig, workerNum int,
 		os.Exit(1)
 	}
 
-	handler := handlers.NewMessageHandler(cfg.AdminID, cfg.IsPrivate, coursesRepo, subscriptionRepo, stateRepo, statisticsRepo)
+	handler := handlers.NewMessageHandler(cfg.AdminID, cfg.IsPrivate, cfg.KaspiCard, coursesRepo, subscriptionRepo, stateRepo, statisticsRepo)
 
 	res, err := bot.Request(handler.CommandsList())
 	if err != nil {
@@ -45,7 +45,7 @@ func NewTelegramBot(stage string, cfg config.BotConfig, workerNum int,
 	return &TelegramBot{
 		BotAPI:         bot,
 		MessageHandler: handler,
-		workerNum:      workerNum,
+		workerNum:      cfg.WorkerNumber,
 	}
 }
 

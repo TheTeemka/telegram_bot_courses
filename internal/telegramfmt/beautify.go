@@ -1,4 +1,4 @@
-package handlers
+package telegramfmt
 
 import (
 	"fmt"
@@ -8,7 +8,7 @@ import (
 	"github.com/TheTeemka/telegram_bot_cources/internal/models"
 )
 
-func formatCourseInDetails(course *models.Course, semesterName string, lastTimeParse time.Time) string {
+func FormatCourseInDetails(course *models.Course, semesterName string, lastTimeParse time.Time) string {
 	var sb strings.Builder
 
 	sb.WriteString(fmt.Sprintf("%s\n", semesterName))
@@ -40,7 +40,7 @@ func formatSection(sectionName string, sectionSize, sectionCap int) string {
 	}
 }
 
-func formatCourseSection(courseName, sectionName string, sectionSize, sectionCap int) string {
+func FormatCourseSection(courseName, sectionName string, sectionSize, sectionCap int) string {
 	if sectionSize >= sectionCap {
 		return (fmt.Sprintf("•` ~%-10s %-6s\\(%d/%d\\)~\n`", courseName, sectionName, sectionSize, sectionCap))
 	} else {
