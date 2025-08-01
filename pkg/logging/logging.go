@@ -25,7 +25,7 @@ func SetSlog(stage string) {
 		w = io.MultiWriter(os.Stdout, logFile)
 		l = slog.LevelDebug
 	case StageProd:
-		w = os.Stdout
+		w = logFile
 		l = slog.LevelInfo
 	default:
 		panic("Unknown stage")
