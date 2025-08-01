@@ -243,8 +243,7 @@ func (h *MessageHandler) HandleUnsubscribe(cmd *tapi.Message) []tapi.Chattable {
 			"error", err,
 			"user_id", cmd.From.ID,
 			"course", courseName)
-		return mf.ImmediateMessage("⚠️ Failed to unsubscribe to the course\\. Please try again\\.")
-	}
+	
 
 	return mf.ImmediateMessage(fmt.Sprintf("✅ Successfully unsubscribed from *%s*", courseName))
 }
