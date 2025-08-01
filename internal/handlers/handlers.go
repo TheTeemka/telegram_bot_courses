@@ -31,7 +31,7 @@ func NewMessageHandler(adminID []int64, private bool, kaspiCard string,
 	stateRepo repositories.StateRepository,
 	statisticsRepo *repositories.StatisticsRepository) *MessageHandler {
 	welcomeText := fmt.Sprintf(
-		"*Welcome to the Course Bot\\.* 🎓\n\n"+
+		"*Welcome to the NU Course Info\\.* 🎓\n\n"+
 			"I provide real\\-time insights about class enrollments for *%s*\n\n"+
 			"Simply send me a course code \\(e\\.g\\. *PHYS 161*\\) to get:\n"+
 			"• Current enrollment numbers\n"+
