@@ -18,16 +18,20 @@ func SetSlog(stage string) {
 		panic(err)
 	}
 	var l slog.Level
+	var w io.Writer
+
 	switch stage {
 	case StageDev:
+		w = io.MultiWriter(os.Stdout, logFile)
 		l = slog.LevelDebug
 	case StageProd:
+		w = os.Stdout
 		l = slog.LevelInfo
 	default:
 		panic("Unknown stage")
 	}
 
-	h := slog.NewJSONHandler(io.MultiWriter(os.Stdout, logFile), &slog.HandlerOptions{
+	h := slog.NewJSONHandler(w, &slog.HandlerOptions{
 		Level: l,
 		// AddSource: stage == StageDev,
 		ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
