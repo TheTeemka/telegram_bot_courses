@@ -22,4 +22,4 @@ jobs:
             cd /home/ec2-user/telegram_bot_courses
             git pull
             go build -o telegram-bot main.go
-            systemctl restart telegram-bot
+            sudo systemctl restart telegram-bot
