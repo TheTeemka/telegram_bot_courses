@@ -21,8 +21,8 @@ type MessageHandler struct {
 	AdminID          []int64
 
 	welcomeText string
-
-	KaspiCard string
+	faq         string
+	KaspiCard   string
 }
 
 func NewMessageHandler(adminID []int64, private bool, kaspiCard string,
@@ -30,22 +30,13 @@ func NewMessageHandler(adminID []int64, private bool, kaspiCard string,
 	subscriptionRepo repositories.CourseSubscriptionRepository,
 	stateRepo repositories.StateRepository,
 	statisticsRepo *repositories.StatisticsRepository) *MessageHandler {
-	welcomeText := fmt.Sprintf(
-		"*Welcome to the NU Course Info\\.* 🎓\n\n"+
-			"I provide real\\-time insights about class enrollments for *%s*\n\n"+
-			"Simply send me a course code \\(e\\.g\\. *PHYS 161*\\) to get:\n"+
-			"• Current enrollment numbers\n"+
-			"• Available seats\n"+
-			"• Section details\n\n"+
-			"Also provides opportunity to track course status by subscription system with notifications\n\n"+
-			"_Updates every 60/30/15/5 minutes \n\\[The closer to registration the more frequent updates will be\\]_",
-		coursesRepo.SemesterName)
 
 	return &MessageHandler{
 		AdminID: adminID,
 		Private: private,
 
-		welcomeText: welcomeText,
+		faq:         generateFAQText(),
+		welcomeText: generateWelcomeText(coursesRepo.SemesterName),
 
 		KaspiCard:        kaspiCard,
 		CoursesRepo:      coursesRepo,
@@ -79,7 +70,7 @@ func (h *MessageHandler) HandleUpdate(update tapi.Update) []tapi.Chattable {
 
 }
 
-var knownCommands = []string{"start", "subscribe", "unsubscribe", "list", "donate", "parsestat"}
+var knownCommands = []string{"start", "subscribe", "unsubscribe", "list", "donate", "faq", "parsestat"}
 
 func (h *MessageHandler) CommandsList() tapi.SetMyCommandsConfig {
 	return tapi.NewSetMyCommands(
@@ -87,6 +78,7 @@ func (h *MessageHandler) CommandsList() tapi.SetMyCommandsConfig {
 		tapi.BotCommand{Command: "subscribe", Description: "Subscribe to a course"},
 		tapi.BotCommand{Command: "unsubscribe", Description: "Unsubscribe from a course"},
 		tapi.BotCommand{Command: "list", Description: "List your subscriptions"},
+		tapi.BotCommand{Command: "faq", Description: "Frequently Asked Questions"},
 		// tapi.BotCommand{Command: "gatekeep", Description: "gatekeep your course and section of choice"},
 		tapi.BotCommand{Command: "donate", Description: "Donate to the bot"},
 	)
@@ -109,6 +101,8 @@ func (h *MessageHandler) HandleCommand(cmd *tapi.Message) []tapi.Chattable {
 		return mf.ImmediateMessage("\\[Still in Development\\] \nFor a totally modest fee of 10 doners, you can unleash your inner gatekeeper and accidentally block others from registering for your dream courses\\. Will it work\\? Who knows\\! Do we offer refunds\\? Absolutely not\\.")
 	case "donate":
 		return mf.ImmediateMessage(fmt.Sprintf("\n Toss a coin to your humble bot,\nO student of fate, \nWhen rivals draw near, and\nthe registration deadline won’t wait\\.\nA humble donation, a whisper, a nudge,\nTo tilt odds in your favor in timetable wars\n\nKaspi: `%s`\n\\[Click to the number to copy\\]", h.KaspiCard))
+	case "faq":
+		return mf.ImmediateMessage(h.faq)
 	}
 
 	h.StateRepo.Upsert(cmd.From.ID, cmd.Command())
@@ -159,7 +153,7 @@ func (h *MessageHandler) HandleSubscribe(cmd *tapi.Message) []tapi.Chattable {
 	mf := telegramfmt.NewMessageFormatter(cmd.From.ID)
 	courseName, sectionNames, err := h.parseCommandArguments(cmd.Text)
 	if err != nil {
-		if err != ErrNotEnoughParams {
+		if err == ErrNotEnoughParams {
 			return mf.ImmediateMessage("❌ You haven't provided not enough arguments.")
 		}
 		return mf.ImmediateMessage("❌ You haven't provided coursename")
@@ -207,7 +201,7 @@ func (h *MessageHandler) parseCommandArguments(args string) (string, []string, e
 
 	var section []string
 	for i := ind; i < len(fields); i++ {
-		if !isDigit(fields[i][0]) {
+		if len(fields[i]) == 0 || !isDigit(fields[i][0]) {
 			if len(section) == 0 {
 				return "", nil, InvalidParams
 			}
@@ -216,7 +210,6 @@ func (h *MessageHandler) parseCommandArguments(args string) (string, []string, e
 			section = append(section, fields[i])
 		}
 	}
-
 	for i := range section {
 		sec, ok := telegramfmt.StandartizeSectionName(section[i], h.CoursesRepo.SectionAbbrList)
 		if !ok {
@@ -235,7 +228,7 @@ func isDigit(b byte) bool {
 
 func (h *MessageHandler) HandleUnsubscribe(cmd *tapi.Message) []tapi.Chattable {
 	mf := telegramfmt.NewMessageFormatter(cmd.From.ID)
-	courseName := cmd.Text
+	courseName := telegramfmt.StandartizeCourseName(cmd.Text)
 	if courseName == "" {
 		return mf.ImmediateMessage("❌ You haven't provided coursename")
 	}
@@ -250,7 +243,7 @@ func (h *MessageHandler) HandleUnsubscribe(cmd *tapi.Message) []tapi.Chattable {
 			"error", err,
 			"user_id", cmd.From.ID,
 			"course", courseName)
-		return mf.ImmediateMessage("⚠️ Failed to subscribe to the course\\. Please try again\\.")
+		return mf.ImmediateMessage("⚠️ Failed to unsubscribe to the course\\. Please try again\\.")
 	}
 
 	return mf.ImmediateMessage(fmt.Sprintf("✅ Successfully unsubscribed from *%s*", courseName))
@@ -261,13 +254,13 @@ func (h *MessageHandler) Clear(cmd *tapi.Message) []tapi.Chattable {
 
 	err := h.SubscriptionRepo.ClearSubscriptions(cmd.From.ID)
 	if err != nil {
-		slog.Error("Failed to subscribe",
+		slog.Error("Failed to clear subscriptions",
 			"error", err,
 			"user_id", cmd.From.ID)
-		return mf.ImmediateMessage("⚠️  Failed to subscribe to the course\\. Please try again\\.")
+		return mf.ImmediateMessage("⚠️ Failed to clear subscriptions\\. Please try again\\.")
 	}
 
-	return mf.ImmediateMessage(("✅ Successfully cleared"))
+	return mf.ImmediateMessage("✅ Successfully cleared")
 }
 
 func (h *MessageHandler) ListSubscriptions(cmd *tapi.Message) []tapi.Chattable {
