@@ -99,6 +99,7 @@ func (h *MessageHandler) HandleCommand(cmd *tapi.Message) []tapi.Chattable {
 	}
 
 	h.StatisticsRepo.AddOne("command" + cmd.Command())
+	h.StateRepo.Upsert(cmd.From.ID, "")
 	switch cmd.Command() {
 	case "start":
 		return mf.ImmediateMessage(h.welcomeText)
@@ -309,7 +310,7 @@ func (h *MessageHandler) HandleCourseCode(updateMsg *tapi.Message) []tapi.Chatta
 	course, exists := h.CoursesRepo.GetCourse(courseAbbr)
 	h.StatisticsRepo.AddOne(courseAbbr)
 	if !exists {
-		return mf.ImmediateNotFoundCourse(courseAbbr, "for general purpose")
+		return mf.ImmediateNotFoundCourse(courseAbbr, "")
 	}
 
 	return mf.ImmediateMessage(telegramfmt.FormatCourseInDetails(course, h.CoursesRepo.SemesterName, h.CoursesRepo.LastTimeParsed))
