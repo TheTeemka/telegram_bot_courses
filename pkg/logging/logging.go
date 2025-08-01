@@ -2,6 +2,7 @@ package logging
 
 import (
 	"io"
+	"log"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -31,6 +32,7 @@ func SetSlog(stage string) {
 		panic("Unknown stage")
 	}
 
+	log.SetOutput(w)
 	h := slog.NewJSONHandler(w, &slog.HandlerOptions{
 		Level: l,
 		// AddSource: stage == StageDev,
