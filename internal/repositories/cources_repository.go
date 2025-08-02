@@ -80,7 +80,7 @@ func (r *CourseRepository) Parse() error {
 	}
 
 	r.Courses = cources
-	r.LastTimeParsed = time.Now()
+	r.LastTimeParsed = time.Now().Local()
 	r.SemesterName = semesterName
 	r.SectionAbbrList = sectionAbbrList
 	slog.Info("Courses parsed successfully")
