@@ -55,6 +55,7 @@ func (r *StatisticsRepository) Run(ctx context.Context) {
 }
 
 func (r *StatisticsRepository) Upsert() error {
+	slog.Info("Upserting statistics", "len", len(r.Stats))
 	query := `
 		INSERT OR REPLACE INTO statistics (action, count)
         VALUES (?, ?)`

@@ -35,6 +35,7 @@ func (t *Tracker) Start(ctx context.Context, writeChan chan<- tapi.Chattable) {
 			return
 
 		case <-t.ticker.C:
+			slog.Info("Tracker ticked, checking subscriptions")
 			subs, err := t.subscriptionRepo.GetAll()
 			if err != nil {
 				slog.Error("Failed to get subscriptions", "error", err)

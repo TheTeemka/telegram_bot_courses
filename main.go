@@ -54,10 +54,15 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-
 		statisticsRepo.Run(ctx)
 	}()
-	bot.Start(ctx, writeChan)
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		bot.Start(ctx, writeChan)
+	}()
+
 	wg.Wait()
 	slog.Info("Telegram Bot Gracefully shut down")
 }
