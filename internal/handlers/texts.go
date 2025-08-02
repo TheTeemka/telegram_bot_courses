@@ -30,16 +30,15 @@ func generateFAQText() string {
 		"   • Verify your subscription with `/list`\n" +
 		"   • Ensure you haven't blocked the bot\n" +
 		"   • Notifications only come when spots open up\n\n" +
-
 		"❓ *How often does the bot update course data?*\n" +
-		"   • The bot uses a dynamic schedule to check for updates more frequently as registration deadlines approach.\n" +
-		"   • Default time is 3 hour frequency\n" +
-		"   • From 1 hour to 30 minutes before registration closes: updates every 30 minutes.\n" +
-		"   • From 30 to 15 minutes before: updates every 15 minutes.\n" +
-		"   • From 15 to 5 minutes before: updates every 5 minutes.\n" +
-		"   • In the last 5 minutes before registration closes and 5 minutes after: updates every minute.\n" +
-		"   • From 5 to 30 minutes after registration closes: updates every 3 minutes.\n" +
-		"   • This ensures you get the most up-to-date information when it matters most!\n\n" +
+		"   • The bot uses a dynamic schedule to check for updates more frequently as registration deadlines approach\\.\\n" +
+		"   • Default time is 3 hour frequency\\n" +
+		"   • From 1 hour to 30 minutes before registration closes: updates every 30 minutes\\.\\n" +
+		"   • From 30 to 15 minutes before: updates every 15 minutes\\.\\n" +
+		"   • From 15 to 5 minutes before: updates every 5 minutes\\.\\n" +
+		"   • In the last 5 minutes before registration closes and 5 minutes after: updates every minute\\.\\n" +
+		"   • From 5 to 30 minutes after registration closes: updates" +
+		"   • This ensures you get the most up\\-to\\-date information when it matters most\\!\n\n" +
 
 		"*💰 Support*\n" +
 		"❓ *How can I support this bot?*\n" +
