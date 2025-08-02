@@ -34,7 +34,7 @@ func FormatCourseInDetails(course *models.Course, semesterName string, lastTimeP
 
 func formatSection(sectionName string, sectionSize, sectionCap int) string {
 	if sectionSize >= sectionCap {
-		return (fmt.Sprintf("• `~%-7s \\(%d/%d\\)~\n`", sectionName, sectionSize, sectionCap))
+		return (fmt.Sprintf("• `%-7s \\(%d/%d\\)   \\[FULL\\]`\n", sectionName, sectionSize, sectionCap))
 	} else {
 		return (fmt.Sprintf("• `%-7s \\(%d/%d\\)\n`", sectionName, sectionSize, sectionCap))
 	}
