@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"errors"
 	"fmt"
 	"log/slog"
 	"slices"
@@ -154,9 +153,11 @@ func (h *MessageHandler) HandleSubscribe(cmd *tapi.Message) []tapi.Chattable {
 	courseName, sectionNames, err := h.parseCommandArguments(cmd.Text)
 	if err != nil {
 		if err == ErrNotEnoughParams {
-			return mf.ImmediateMessage("❌ You haven't provided not enough arguments\\.")
+			return mf.ImmediateMessage("❌ You haven't provided  enough arguments\\. If you want to try again \\, first call /subscribe")
+		} else if err == InvalidParams {
+			return mf.ImmediateMessage("❌ You haven't provided valid parameters for the command\\. If you want to try again \\, first call /subscribe")
 		}
-		return mf.ImmediateMessage("❌ You haven't provided coursename")
+		return mf.ImmediateMessage("❌ You haven't provided coursename\\. If you want to try again\\, first call /subscribe")
 	}
 
 	if _, exists := h.CoursesRepo.GetCourse(courseName); !exists {
@@ -184,12 +185,10 @@ func (h *MessageHandler) HandleSubscribe(cmd *tapi.Message) []tapi.Chattable {
 func (h *MessageHandler) parseCommandArguments(args string) (string, []string, error) {
 	slog.Debug("Parsing command arguments", "args", args)
 	fields := strings.Fields(args)
-	if len(fields) < 2 {
-		return "", nil, errors.New("not enough fields in command arguments")
-	}
+
 	courseName := fields[0]
 	ind := 1
-	if !isDigit(courseName[len(courseName)-1]) && isDigit(fields[1][0]) {
+	if len(fields) >= 2 && !isDigit(courseName[len(courseName)-1]) && isDigit(fields[1][0]) {
 		courseName += fields[1]
 		ind++
 	}

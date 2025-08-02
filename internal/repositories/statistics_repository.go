@@ -57,8 +57,10 @@ func (r *StatisticsRepository) Run(ctx context.Context) {
 func (r *StatisticsRepository) Upsert() error {
 	slog.Info("Upserting statistics", "len", len(r.Stats))
 	query := `
-		INSERT OR REPLACE INTO statistics (action, count)
-        VALUES (?, ?)`
+        INSERT INTO statistics (action, count)
+        VALUES ($1, $2)
+		ON CONFLICT(action) DO UPDATE SET count = count + $2;
+`
 
 	tx, err := r.db.BeginTx(context.Background(), nil)
 	if err != nil {
@@ -80,28 +82,28 @@ func (r *StatisticsRepository) Upsert() error {
 	return nil
 }
 
-func (r *StatisticsRepository) GetAll() error {
-	query := `
-		SELECT action, count FROM statistics`
-	rows, err := r.db.Query(query)
-	if err != nil {
-		return fmt.Errorf("querying statistics: %w", err)
-	}
-	defer rows.Close()
+// func (r *StatisticsRepository) GetAll() error {
+// 	query := `
+// 		SELECT action, count FROM statistics`
+// 	rows, err := r.db.Query(query)
+// 	if err != nil {
+// 		return fmt.Errorf("querying statistics: %w", err)
+// 	}
+// 	defer rows.Close()
 
-	stats := make(map[string]int64)
-	var action string
-	var count int64
-	for rows.Next() {
-		if err := rows.Scan(&action, &count); err != nil {
-			return fmt.Errorf("scanning row: %w", err)
-		}
-		stats[action] = count
-	}
+// 	stats := make(map[string]int64)
+// 	var action string
+// 	var count int64
+// 	for rows.Next() {
+// 		if err := rows.Scan(&action, &count); err != nil {
+// 			return fmt.Errorf("scanning row: %w", err)
+// 		}
+// 		stats[action] = count
+// 	}
 
-	if err := rows.Err(); err != nil {
-		return fmt.Errorf("error in rows: %w", err)
-	}
-	r.Stats = stats
-	return nil
-}
+// 	if err := rows.Err(); err != nil {
+// 		return fmt.Errorf("error in rows: %w", err)
+// 	}
+// 	r.Stats = stats
+// 	return nil
+// }
