@@ -14,7 +14,7 @@ const (
 )
 
 func SetSlog(stage string) {
-	logFile, err := os.OpenFile("data/logging.json", os.O_RDWR|os.O_CREATE, 0644)
+	logFile, err := os.OpenFile("data/logging.json", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
 	if err != nil {
 		panic(err)
 	}
