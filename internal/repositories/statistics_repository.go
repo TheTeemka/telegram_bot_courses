@@ -67,6 +67,7 @@ func (r *StatisticsRepository) Upsert() error {
 		return fmt.Errorf("beginning transaction: %w", err)
 	}
 	for action, count := range r.Stats {
+		delete(r.Stats, action)
 		_, err := tx.Exec(query, action, count)
 		if err != nil {
 			if err := tx.Rollback(); err != nil {
