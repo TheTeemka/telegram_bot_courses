@@ -144,8 +144,15 @@ func ParseTimeConfig(timeConfigs []TickerIntervalConfig) []TickerInterval {
 
 		tt = append(tt, TickerInterval{
 			From:     t.Till.Add(-5 * time.Minute),
-			Till:     t.Till.Add(0 * time.Minute),
+			Till:     t.Till.Add(5 * time.Minute),
 			Interval: 1 * time.Minute,
+			Label:    t.Label,
+		})
+
+		tt = append(tt, TickerInterval{
+			From:     t.Till.Add(5 * time.Minute),
+			Till:     t.Till.Add(30 * time.Minute),
+			Interval: 3 * time.Minute,
 			Label:    t.Label,
 		})
 	}

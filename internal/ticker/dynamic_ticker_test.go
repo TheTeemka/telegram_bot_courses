@@ -2,6 +2,7 @@ package ticker
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -25,25 +26,31 @@ func TestParseTimeConfig(t *testing.T) {
 				{
 					From:     parseTime("2025-09-06T08:00:00+05:00"),
 					Till:     parseTime("2025-09-06T08:30:00+05:00"),
-					Interval: 1800000000000,
+					Interval: 30 * time.Minute,
 					Label:    "First Priority for 4,5,6 UG",
 				},
 				{
 					From:     parseTime("2025-09-06T08:30:00+05:00"),
 					Till:     parseTime("2025-09-06T08:45:00+05:00"),
-					Interval: 900000000000,
+					Interval: 15 * time.Minute,
 					Label:    "First Priority for 4,5,6 UG",
 				},
 				{
 					From:     parseTime("2025-09-06T08:45:00+05:00"),
 					Till:     parseTime("2025-09-06T08:55:00+05:00"),
-					Interval: 300000000000,
+					Interval: 5 * time.Minute,
 					Label:    "First Priority for 4,5,6 UG",
 				},
 				{
 					From:     parseTime("2025-09-06T08:55:00+05:00"),
-					Till:     parseTime("2025-09-06T09:00:00+05:00"),
-					Interval: 60000000000,
+					Till:     parseTime("2025-09-06T09:05:00+05:00"),
+					Interval: 1 * time.Minute,
+					Label:    "First Priority for 4,5,6 UG",
+				},
+				{
+					From:     parseTime("2025-09-06T09:05:00+05:00"),
+					Till:     parseTime("2025-09-06T09:30:00+05:00"),
+					Interval: 3 * time.Minute,
 					Label:    "First Priority for 4,5,6 UG",
 				},
 			},

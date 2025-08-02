@@ -37,7 +37,8 @@ func generateFAQText() string {
 		"   • From 1 hour to 30 minutes before registration closes: updates every 30 minutes.\n" +
 		"   • From 30 to 15 minutes before: updates every 15 minutes.\n" +
 		"   • From 15 to 5 minutes before: updates every 5 minutes.\n" +
-		"   • In the last 5 minutes before registration closes: updates every minute.\n" +
+		"   • In the last 5 minutes before registration closes and 5 minutes after: updates every minute.\n" +
+		"   • From 5 to 30 minutes after registration closes: updates every 3 minutes.\n" +
 		"   • This ensures you get the most up-to-date information when it matters most!\n\n" +
 
 		"*💰 Support*\n" +
