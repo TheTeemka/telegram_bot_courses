@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 
 	"github.com/TheTeemka/telegram_bot_cources/internal/config"
@@ -21,6 +22,7 @@ func main() {
 
 	logging.SetSlog(cfg.EnvStage)
 
+	slog.Info("Starting Application")
 	db := database.NewSQLiteDB("./data/db.db")
 
 	courseRepo := repositories.NewCourseRepo(cfg.APIConfig)
@@ -42,10 +44,21 @@ func main() {
 		"semester name", bot.CoursesRepo.SemesterName)
 
 	writeChan := make(chan tapi.Chattable, 10)
-	go tracker.Start(ctx, writeChan)
-	go statisticsRepo.Run(ctx)
-	bot.Start(ctx, writeChan)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		tracker.Start(ctx, writeChan)
+	}()
 
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		statisticsRepo.Run(ctx)
+	}()
+	bot.Start(ctx, writeChan)
+	wg.Wait()
 	slog.Info("Telegram Bot Gracefully shut down")
 }
 

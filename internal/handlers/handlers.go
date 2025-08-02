@@ -103,6 +103,8 @@ func (h *MessageHandler) HandleCommand(cmd *tapi.Message) []tapi.Chattable {
 		return mf.ImmediateMessage(fmt.Sprintf("\n Toss a coin to your humble bot,\nO student of fate, \nWhen rivals draw near, and\nthe registration deadline won’t wait\\.\nA humble donation, a whisper, a nudge,\nTo tilt odds in your favor in timetable wars\n\nKaspi: `%s`\n\\[Click to the number to copy\\]", h.KaspiCard))
 	case "faq":
 		return mf.ImmediateMessage(h.faq)
+	case "parsestat":
+		return AuthAdmin(h.AdminID, h.parsestat)(cmd)
 	}
 
 	h.StateRepo.Upsert(cmd.From.ID, cmd.Command())
@@ -111,8 +113,6 @@ func (h *MessageHandler) HandleCommand(cmd *tapi.Message) []tapi.Chattable {
 		return mf.ImmediateMessage("Please provide a course abbr and section as in docs\\.\nFormat: `[Course Name] [Course Sections]`\\.\nExample: \\'PHYS 161 2L 1PLB 2R 2r 3plb 3L\\' \\.")
 	case "unsubscribe":
 		return mf.ImmediateMessage("Please provide a course abbr as in docs\\.\nFormat: `[Course Name]`\\.\nExample: \\'PHYS161\\'\\.")
-	case "parsestat":
-		return AuthAdmin(h.AdminID, h.parsestat)(cmd)
 	default:
 		return h.HandleCommandUnknown(cmd)
 	}
