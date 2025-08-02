@@ -154,7 +154,7 @@ func (h *MessageHandler) HandleSubscribe(cmd *tapi.Message) []tapi.Chattable {
 	courseName, sectionNames, err := h.parseCommandArguments(cmd.Text)
 	if err != nil {
 		if err == ErrNotEnoughParams {
-			return mf.ImmediateMessage("❌ You haven't provided not enough arguments.")
+			return mf.ImmediateMessage("❌ You haven't provided not enough arguments\\.")
 		}
 		return mf.ImmediateMessage("❌ You haven't provided coursename")
 	}
