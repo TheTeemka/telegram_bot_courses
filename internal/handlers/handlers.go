@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"bytes"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"slices"
 	"strings"
 
@@ -12,6 +14,7 @@ import (
 )
 
 type MessageHandler struct {
+	BotAPI           *tapi.BotAPI
 	StateRepo        repositories.StateRepository
 	CoursesRepo      *repositories.CourseRepository
 	SubscriptionRepo repositories.CourseSubscriptionRepository
@@ -24,13 +27,14 @@ type MessageHandler struct {
 	KaspiCard   string
 }
 
-func NewMessageHandler(adminID []int64, private bool, kaspiCard string,
+func NewMessageHandler(botAPI *tapi.BotAPI, adminID []int64, private bool, kaspiCard string,
 	coursesRepo *repositories.CourseRepository,
 	subscriptionRepo repositories.CourseSubscriptionRepository,
 	stateRepo repositories.StateRepository,
 	statisticsRepo *repositories.StatisticsRepository) *MessageHandler {
 
 	return &MessageHandler{
+		BotAPI:  botAPI,
 		AdminID: adminID,
 		Private: private,
 
@@ -96,8 +100,6 @@ func (h *MessageHandler) HandleCommand(cmd *tapi.Message) []tapi.Chattable {
 		return mf.ImmediateMessage(h.welcomeText)
 	case "list":
 		return h.ListSubscriptions(cmd)
-	case "gatekeep":
-		return mf.ImmediateMessage("\\[Still in Development\\] \nFor a totally modest fee of 10 doners, you can unleash your inner gatekeeper and accidentally block others from registering for your dream courses\\. Will it work\\? Who knows\\! Do we offer refunds\\? Absolutely not\\.")
 	case "donate":
 		return mf.ImmediateMessage(fmt.Sprintf("\n Toss a coin to your humble bot,\nO student of fate, \nWhen rivals draw near, and\nthe registration deadline won’t wait\\.\nA humble donation, a whisper, a nudge,\nTo tilt odds in your favor in timetable wars\n\nKaspi: `%s`\n\\[Click to the number to copy\\]", h.KaspiCard))
 	case "faq":
@@ -109,7 +111,7 @@ func (h *MessageHandler) HandleCommand(cmd *tapi.Message) []tapi.Chattable {
 	h.StateRepo.Upsert(cmd.From.ID, cmd.Command())
 	switch cmd.Command() {
 	case "subscribe":
-		return mf.ImmediateMessage("Please provide a course abbr and section as in docs\\.\nFormat: `[Course Name] [Course Sections]`\\.\nExample: \\'PHYS 161 2L 1PLB 2R 2r 3plb 3L\\' \\.")
+		return mf.ImmediateMessage("Please provide a course abbr and section as in docs\\.\nFormat: `[Course Name] [Course Sections]`\\.\nExample: \\'PHYS 161 2L 1PLB 2R 2r 3plb 3L\\'\n\nYou can also provide \\.txt file from crashed\\.nu")
 	case "unsubscribe":
 		return mf.ImmediateMessage("Please provide a course abbr as in docs\\.\nFormat: `[Course Name]`\\.\nExample: \\'PHYS161\\'\\.")
 	default:
@@ -149,12 +151,17 @@ func (h *MessageHandler) HandleMessage(msg *tapi.Message) []tapi.Chattable {
 }
 
 func (h *MessageHandler) HandleSubscribe(cmd *tapi.Message) []tapi.Chattable {
+	if cmd.Document != nil {
+		return h.HandleSubscribeFromCrashedNUFile(cmd)
+	}
+
 	mf := telegramfmt.NewMessageFormatter(cmd.From.ID)
 	courseName, sectionNames, err := h.parseCommandArguments(cmd.Text)
 	if err != nil {
-		if err == ErrNotEnoughParams {
+		switch err {
+		case ErrNotEnoughParams:
 			return mf.ImmediateMessage("❌ You haven't provided  enough arguments\\. If you want to try again \\, first call /subscribe")
-		} else if err == InvalidParams {
+		case InvalidParams:
 			return mf.ImmediateMessage("❌ You haven't provided valid parameters for the command\\. If you want to try again \\, first call /subscribe")
 		}
 		return mf.ImmediateMessage("❌ You haven't provided coursename\\. If you want to try again\\, first call /subscribe")
@@ -164,10 +171,8 @@ func (h *MessageHandler) HandleSubscribe(cmd *tapi.Message) []tapi.Chattable {
 		return mf.ImmediateNotFoundCourse(courseName, "for subscription")
 	}
 
-	for _, sec := range sectionNames {
-		if _, exists := h.CoursesRepo.GetSection(courseName, sec); !exists {
-			return mf.ImmediateNotFoundCourseSection(courseName, sec, "for subscription")
-		}
+	if valid, sect := h.CoursesRepo.CheckForValidness(courseName, sectionNames); !valid {
+		return mf.ImmediateNotFoundCourseSection(courseName, sect, "for subscription")
 	}
 
 	err = h.SubscriptionRepo.Subscribe(cmd.From.ID, courseName, sectionNames)
@@ -180,6 +185,46 @@ func (h *MessageHandler) HandleSubscribe(cmd *tapi.Message) []tapi.Chattable {
 	}
 
 	return mf.ImmediateMessage(fmt.Sprintf("✅ Successfully subscribed to *%s \\(%s\\)*", courseName, strings.Join(sectionNames, ", ")))
+}
+
+func (h *MessageHandler) HandleSubscribeFromCrashedNUFile(cmd *tapi.Message) []tapi.Chattable {
+	mf := telegramfmt.NewMessageFormatter(cmd.From.ID)
+
+	buf, err := h.DownloadFile(cmd.Document.FileID)
+	if err != nil {
+		slog.Error("Failed to download file", "error", err, "file_id", cmd.Document.FileID)
+		return mf.ImmediateMessage("⚠️ Failed to download the file\\. Please try again later\\.")
+	}
+
+	str := string(buf)
+	lines := strings.Split(str, "\n")
+	for ind, line := range lines {
+		line = strings.ReplaceAll(line, ": ", "|")
+		line = strings.ReplaceAll(line, ", ", "|")
+		fields := strings.FieldsFunc(line, func(r rune) bool {
+			return r == '|'
+		})
+		if len(fields) < 2 {
+			mf.AddString(fmt.Sprintf("⚠️ Invalid line format\\: %s", lines[ind]))
+			continue
+		}
+
+		courseName := fields[0]
+		section := fields[1:]
+		if valid, sect := h.CoursesRepo.CheckForValidness(courseName, section); !valid {
+			mf.AddNotFoundCourseSection(courseName, sect)
+			continue
+		}
+
+		err := h.SubscriptionRepo.Subscribe(cmd.From.ID, courseName, section)
+		if err != nil {
+			mf.AddString(fmt.Sprintf("⚠️ Failed to subscribe to %s\\. Please try again\\.", courseName))
+			continue
+		}
+		mf.AddString(fmt.Sprintf("✅ Successfully subscribed to %s\n", lines[ind]))
+	}
+
+	return mf.Messages()
 }
 
 func (h *MessageHandler) parseCommandArguments(args string) (string, []string, error) {
@@ -367,4 +412,27 @@ func (h *MessageHandler) parsestat(cmd *tapi.Message) []tapi.Chattable {
 	} else {
 		return mf.ImmediateMessage("Statistics updated successfully\\.")
 	}
+}
+
+func (h *MessageHandler) DownloadFile(fileID string) ([]byte, error) {
+	file, err := h.BotAPI.GetFile(tapi.FileConfig{FileID: fileID})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get file info: %w", err)
+	}
+
+	fileURL := file.Link(h.BotAPI.Token)
+
+	resp, err := http.Get(fileURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to download file: %w", err)
+	}
+	defer resp.Body.Close()
+
+	buf := new(bytes.Buffer)
+	_, err = buf.ReadFrom(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	return buf.Bytes(), nil
 }

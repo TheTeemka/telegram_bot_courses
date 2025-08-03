@@ -31,7 +31,7 @@ func NewTelegramBot(stage string, cfg config.BotConfig,
 		os.Exit(1)
 	}
 
-	handler := handlers.NewMessageHandler(cfg.AdminID, cfg.IsPrivate, cfg.KaspiCard, coursesRepo, subscriptionRepo, stateRepo, statisticsRepo)
+	handler := handlers.NewMessageHandler(bot, cfg.AdminID, cfg.IsPrivate, cfg.KaspiCard, coursesRepo, subscriptionRepo, stateRepo, statisticsRepo)
 
 	res, err := bot.Request(handler.CommandsList())
 	if err != nil {

@@ -5,11 +5,13 @@ import (
 	"database/sql"
 	"fmt"
 	"log/slog"
+	"sync"
 	"time"
 )
 
 type StatisticsRepository struct {
 	db    *sql.DB
+	mux   sync.RWMutex
 	Stats map[string]int64
 }
 
@@ -28,14 +30,17 @@ func NewStatisticsRepository(db *sql.DB) *StatisticsRepository {
 		db:    db,
 		Stats: map[string]int64{},
 	}
+
 }
 
 func (r *StatisticsRepository) AddOne(action string) {
+	r.mux.Lock()
 	r.Stats[action]++
+	r.mux.Unlock()
 }
 
 func (r *StatisticsRepository) Run(ctx context.Context) {
-	ticker := time.NewTicker(6 * time.Hour)
+	ticker := time.NewTicker(3 * time.Hour)
 
 	for {
 		select {
@@ -55,6 +60,8 @@ func (r *StatisticsRepository) Run(ctx context.Context) {
 }
 
 func (r *StatisticsRepository) Upsert() error {
+	r.mux.Lock()
+
 	slog.Info("Upserting statistics", "len", len(r.Stats))
 	query := `
         INSERT INTO statistics (action, count)
@@ -67,7 +74,6 @@ func (r *StatisticsRepository) Upsert() error {
 		return fmt.Errorf("beginning transaction: %w", err)
 	}
 	for action, count := range r.Stats {
-		delete(r.Stats, action)
 		_, err := tx.Exec(query, action, count)
 		if err != nil {
 			if err := tx.Rollback(); err != nil {
@@ -75,11 +81,14 @@ func (r *StatisticsRepository) Upsert() error {
 			}
 			return fmt.Errorf("upserting chat state: %w", err)
 		}
+		delete(r.Stats, action)
 	}
 	err = tx.Commit()
 	if err != nil {
 		return fmt.Errorf("committing transaction: %w", err)
 	}
+	r.mux.Unlock()
+
 	return nil
 }
 

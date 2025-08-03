@@ -49,7 +49,7 @@ func NewSQLiteSubscriptionRepo(db *sql.DB) CourseSubscriptionRepository {
 
 func (r *sqliteSubscriptionRepo) Subscribe(telegramID int64, course string, sections []string) error {
 	query := `
-		INSERT OR REPLACE INTO subscriptions (telegram_id, course, section, updated_at)
+		INSERT OR IGNORE INTO subscriptions (telegram_id, course, section, updated_at)
         VALUES (?, ?, ?, ?)
     `
 	tx, err := r.db.BeginTx(context.Background(), nil)
@@ -60,6 +60,7 @@ func (r *sqliteSubscriptionRepo) Subscribe(telegramID int64, course string, sect
 	for _, sect := range sections {
 		_, err = tx.Exec(query, telegramID, course, sect, time.Now())
 		if err != nil {
+
 			tx.Rollback()
 			return fmt.Errorf("inserting subscription: %w", err)
 		}

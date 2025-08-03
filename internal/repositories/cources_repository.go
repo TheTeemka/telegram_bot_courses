@@ -65,11 +65,9 @@ func NewCourseRepo(apiConfig config.APIConfig) *CourseRepository {
 // }
 
 func (r *CourseRepository) Parse() error {
-	slog.Info("Courses parsing")
-
 	r.mutex.Lock()
+	slog.Info("Courses parsing")
 	defer r.mutex.Unlock()
-
 	if r.IsExampleData {
 		return r.ParseExampleData()
 	}
@@ -127,13 +125,6 @@ func (r *CourseRepository) ParseExampleData() error {
 }
 
 func (r *CourseRepository) GetCourse(name string) (*models.Course, bool) {
-	if time.Since(r.LastTimeParsed) > r.TimeIntervalBetweenParse {
-		err := r.Parse()
-		if err != nil {
-			slog.Error("Failed to parse courses", "error", err)
-		}
-	}
-
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
 
@@ -142,13 +133,6 @@ func (r *CourseRepository) GetCourse(name string) (*models.Course, bool) {
 }
 
 func (r *CourseRepository) GetSection(courseName, SectionName string) (*models.Section, bool) {
-	if time.Since(r.LastTimeParsed) > r.TimeIntervalBetweenParse {
-		err := r.Parse()
-		if err != nil {
-			slog.Error("Failed to parse courses", "error", err)
-
-		}
-	}
 
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
@@ -163,6 +147,16 @@ func (r *CourseRepository) GetSection(courseName, SectionName string) (*models.S
 		}
 	}
 	return nil, false
+}
+
+func (r *CourseRepository) CheckForValidness(courseName string, sections []string) (bool, string) {
+	for _, sect := range sections {
+		_, exists := r.GetSection(courseName, sect)
+		if !exists {
+			return false, sect
+		}
+	}
+	return true, ""
 }
 
 func ParseCourses(url string) (string, map[string]*models.Course, []string, error) {
