@@ -6,13 +6,15 @@ import (
 	"time"
 
 	"github.com/TheTeemka/telegram_bot_cources/internal/models"
+	tapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 func FormatCourseInDetails(course *models.Course, semesterName string, lastTimeParse time.Time) string {
 	var sb strings.Builder
+	semesterName = Escape(semesterName)
 
 	sb.WriteString(fmt.Sprintf("%s\n", semesterName))
-	sb.WriteString(fmt.Sprintf("%s: %s\n", course.AbbrName, course.FullName))
+	sb.WriteString(fmt.Sprintf("%s: %s\n", Escape(course.AbbrName), Escape(course.FullName)))
 
 	course.Sections = models.SortSections(course.Sections)
 
@@ -27,12 +29,14 @@ func FormatCourseInDetails(course *models.Course, semesterName string, lastTimeP
 
 		sb.WriteString(formatSection(section.SectionName, section.Size, section.Cap))
 	}
-	sb.WriteString(lastTimeParse.Format("\n_\\Last Update on:  15:04:05 02\\.01\\.2006 _"))
+	timeStr := Escape(lastTimeParse.Format("Last Update on: 15:04:05 02.01.2006"))
+	sb.WriteString(fmt.Sprintf("\n_%s_", timeStr))
 
 	return sb.String()
 }
 
 func formatSection(sectionName string, sectionSize, sectionCap int) string {
+	sectionName = Escape(sectionName)
 	if sectionSize >= sectionCap {
 		return (fmt.Sprintf("• `%-7s \\(%d/%d\\)   \\[FULL\\]`\n", sectionName, sectionSize, sectionCap))
 	} else {
@@ -41,6 +45,8 @@ func formatSection(sectionName string, sectionSize, sectionCap int) string {
 }
 
 func FormatCourseSection(courseName, sectionName string, sectionSize, sectionCap int) string {
+	courseName = Escape(courseName)
+	sectionName = Escape(sectionName)
 	if sectionSize >= sectionCap {
 		return (fmt.Sprintf("•` ~%-10s %-6s\\(%d/%d\\)~\n`", courseName, sectionName, sectionSize, sectionCap))
 	} else {
@@ -89,4 +95,8 @@ func retrieveNumbersFromPrefix(s string) string {
 		}
 	}
 	return s
+}
+
+func Escape(s string) string {
+	return tapi.EscapeText(tapi.ModeMarkdownV2, s)
 }
