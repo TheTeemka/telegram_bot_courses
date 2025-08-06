@@ -32,6 +32,8 @@ func SetSlog(stage string) {
 		panic("Unknown stage")
 	}
 
+	l = slog.LevelDebug
+
 	log.SetOutput(w)
 	h := slog.NewJSONHandler(w, &slog.HandlerOptions{
 		Level: l,
