@@ -48,9 +48,9 @@ func FormatCourseSection(courseName, sectionName string, sectionSize, sectionCap
 	courseName = Escape(courseName)
 	sectionName = Escape(sectionName)
 	if sectionSize >= sectionCap {
-		return (fmt.Sprintf("•` ~%-10s %-6s\\(%d/%d\\)~\n`", courseName, sectionName, sectionSize, sectionCap))
+		return (fmt.Sprintf("• `%-10s %-6s\\(%d/%d\\)  \\[FULL\\]`\n", courseName, sectionName, sectionSize, sectionCap))
 	} else {
-		return (fmt.Sprintf("•` %-10s %-6s\\(%d/%d\\)\n`", courseName, sectionName, sectionSize, sectionCap))
+		return (fmt.Sprintf("• `%-10s %-6s\\(%d/%d\\)\n`", courseName, sectionName, sectionSize, sectionCap))
 	}
 }
 
