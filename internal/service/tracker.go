@@ -27,6 +27,8 @@ func NewTracker(courseRepo *repositories.CourseRepository, subscriptionRepo repo
 }
 
 func (t *Tracker) Start(ctx context.Context, writeChan chan<- tapi.Chattable) {
+	t.Track(writeChan)
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -35,62 +37,65 @@ func (t *Tracker) Start(ctx context.Context, writeChan chan<- tapi.Chattable) {
 			return
 
 		case <-t.ticker.C:
-			slog.Info("Tracker ticked, checking subscriptions")
-			subs, err := t.subscriptionRepo.GetAll()
-			if err != nil {
-				slog.Error("Failed to get subscriptions", "error", err)
-				continue
-			}
-			t.courseRepo.Parse()
-			for _, sub := range subs {
-				mf := telegramfmt.NewMessageFormatter(sub.TelegramID)
-				_, exists := t.courseRepo.GetCourse(sub.Course)
-				if !exists {
-					mf.AddString(fmt.Sprintf("%s %s is not existent anymore", sub.Course, sub.Section))
-					mf.UnsubscribeOrIgnoreCourse(sub.Course)
-
-					writeChan <- mf.Messages()[0]
-					continue
-				}
-
-				sect, exists := t.courseRepo.GetSection(sub.Course, sub.Section)
-				if !exists {
-					mf.AddString(fmt.Sprintf("%s %s is not existent anymore", sub.Course, sub.Section))
-					mf.UnsubscribeOrIgnoreSection(sub.Course, sub.Section)
-
-					writeChan <- mf.Messages()[0]
-					continue
-				}
-
-				if sub.IsFull && sect.Size < sect.Cap {
-					writeChan <- immediateMessage(sub.TelegramID,
-						fmt.Sprintf("🔆 %s %s now has free places \\(%d/%d\\)",
-							sub.Course, sub.Section, sect.Size, sect.Cap))
-
-					sub.IsFull = false
-					err := t.subscriptionRepo.Update(sub)
-					if err != nil {
-						slog.Error("Failed to update subscription", "error", err, "subscription", sub)
-						continue
-					}
-
-				} else if !sub.IsFull && sect.Size >= sect.Cap {
-					writeChan <- immediateMessage(sub.TelegramID,
-						fmt.Sprintf("🚫 %s %s is full \\(%d/%d\\)",
-							sub.Course, sub.Section, sect.Size, sect.Cap))
-
-					sub.IsFull = true
-					err := t.subscriptionRepo.Update(sub)
-					if err != nil {
-						slog.Error("Failed to update subscription", "error", err, "subscription", sub)
-						continue
-					}
-				}
-			}
+			t.Track(writeChan)
 		}
 	}
 }
 
+func (t *Tracker) Track(writeChan chan<- tapi.Chattable) {
+	slog.Info("Tracker ticked, checking subscriptions")
+	subs, err := t.subscriptionRepo.GetAll()
+	if err != nil {
+		slog.Error("Failed to get subscriptions", "error", err)
+		return
+	}
+	t.courseRepo.Parse()
+	for _, sub := range subs {
+		mf := telegramfmt.NewMessageFormatter(sub.TelegramID)
+		_, exists := t.courseRepo.GetCourse(sub.Course)
+		if !exists {
+			mf.AddString(fmt.Sprintf("%s %s is not existent anymore", sub.Course, sub.Section))
+			mf.UnsubscribeOrIgnoreCourse(sub.Course)
+
+			writeChan <- mf.Messages()[0]
+			continue
+		}
+
+		sect, exists := t.courseRepo.GetSection(sub.Course, sub.Section)
+		if !exists {
+			mf.AddString(fmt.Sprintf("%s %s is not existent anymore", sub.Course, sub.Section))
+			mf.UnsubscribeOrIgnoreSection(sub.Course, sub.Section)
+
+			writeChan <- mf.Messages()[0]
+			continue
+		}
+
+		if sub.IsFull && sect.Size < sect.Cap {
+			writeChan <- immediateMessage(sub.TelegramID,
+				fmt.Sprintf("🔆 %s %s now has free places \\(%d/%d\\)",
+					sub.Course, sub.Section, sect.Size, sect.Cap))
+
+			sub.IsFull = false
+			err := t.subscriptionRepo.Update(sub)
+			if err != nil {
+				slog.Error("Failed to update subscription", "error", err, "subscription", sub)
+				continue
+			}
+
+		} else if !sub.IsFull && sect.Size >= sect.Cap {
+			writeChan <- immediateMessage(sub.TelegramID,
+				fmt.Sprintf("🚫 %s %s is full \\(%d/%d\\)",
+					sub.Course, sub.Section, sect.Size, sect.Cap))
+
+			sub.IsFull = true
+			err := t.subscriptionRepo.Update(sub)
+			if err != nil {
+				slog.Error("Failed to update subscription", "error", err, "subscription", sub)
+				continue
+			}
+		}
+	}
+}
 func immediateMessage(chatId int64, text string) tapi.Chattable {
 	msg := tapi.NewMessage(chatId, text)
 	msg.ParseMode = tapi.ModeMarkdownV2

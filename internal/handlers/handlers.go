@@ -73,7 +73,7 @@ func (h *MessageHandler) HandleUpdate(update tapi.Update) []tapi.Chattable {
 
 }
 
-var knownCommands = []string{"start", "subscribe", "unsubscribe", "list", "donate", "faq", "parsestat"}
+var knownCommands = []string{"start", "subscribe", "unsubscribe", "list", "donate", "faq", "parsestat", "nextupdatetime"}
 
 func (h *MessageHandler) CommandsList() tapi.SetMyCommandsConfig {
 	return tapi.NewSetMyCommands(
@@ -84,6 +84,7 @@ func (h *MessageHandler) CommandsList() tapi.SetMyCommandsConfig {
 		tapi.BotCommand{Command: "faq", Description: "Frequently Asked Questions"},
 		// tapi.BotCommand{Command: "gatekeep", Description: "gatekeep your course and section of choice"},
 		tapi.BotCommand{Command: "donate", Description: "Donate to the bot"},
+		tapi.BotCommand{Command: "nextupdatetime", Description: "next sync time"},
 	)
 }
 
@@ -104,6 +105,8 @@ func (h *MessageHandler) HandleCommand(cmd *tapi.Message) []tapi.Chattable {
 		return mf.ImmediateMessage(fmt.Sprintf("\n Toss a coin to your humble bot,\nO student of fate, \nWhen rivals draw near, and\nthe registration deadline won’t wait\\.\nA humble donation, a whisper, a nudge,\nTo tilt odds in your favor in timetable wars\n\nKaspi: `%s`\n\\[Click to the number to copy\\]", h.KaspiCard))
 	case "faq":
 		return mf.ImmediateMessage(h.faq)
+	case "nextupdatetime":
+		return mf.ImmediateMessage(fmt.Sprintf("Next update time is: %s", telegramfmt.Escape(h.CoursesRepo.NextTimeToParse.Format("15:04:05 02.01.2006"))))
 	case "parsestat":
 		return AuthAdmin(h.AdminID, h.parsestat)(cmd)
 	}

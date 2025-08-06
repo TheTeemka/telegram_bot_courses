@@ -27,6 +27,7 @@ type CourseRepository struct {
 
 	Courses         map[string]*models.Course
 	LastTimeParsed  time.Time
+	NextTimeToParse time.Time
 	SemesterName    string
 	SectionAbbrList []string
 
@@ -78,8 +79,11 @@ func (r *CourseRepository) Parse() error {
 	}
 
 	r.Courses = cources
+
 	location := time.FixedZone("UTC+5", 5*60*60)
 	r.LastTimeParsed = time.Now().In(location)
+	r.NextTimeToParse = r.ticker.TimePoint
+
 	r.SemesterName = semesterName
 	r.SectionAbbrList = sectionAbbrList
 	slog.Info("Courses parsed successfully")

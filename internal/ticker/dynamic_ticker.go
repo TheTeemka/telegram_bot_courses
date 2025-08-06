@@ -62,6 +62,7 @@ type TickerInterval struct {
 
 type DynamicTicker struct {
 	C                   chan time.Time
+	TimePoint           time.Time
 	stop                chan struct{}
 	TickerIntervals     []TickerInterval
 	defaultTimeInterval time.Duration
@@ -79,8 +80,11 @@ func NewDynamicTicker(timeInterval time.Duration) *DynamicTicker {
 }
 
 func (t *DynamicTicker) run() {
+	location := time.FixedZone("UTC+5", 5*60*60)
+
 	for {
 		d := t.getDuration()
+		t.TimePoint = time.Now().In(location).Add(d)
 		slog.Debug("Dynamic ticker started", "duration", d.String())
 		timer := time.NewTimer(d)
 		select {
