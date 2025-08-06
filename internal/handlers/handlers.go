@@ -89,6 +89,7 @@ func (h *MessageHandler) CommandsList() tapi.SetMyCommandsConfig {
 }
 
 func (h *MessageHandler) HandleCommand(cmd *tapi.Message) []tapi.Chattable {
+	slog.Debug("Handling command", "command", cmd.Command(), "text", cmd.Text, "username", cmd.From.UserName)
 	mf := telegramfmt.NewMessageFormatter(cmd.From.ID)
 	if !slices.Contains(knownCommands, cmd.Command()) {
 		return mf.ImmediateMessage("❌ Unknown command " + cmd.Command())
@@ -125,6 +126,7 @@ func (h *MessageHandler) HandleCommand(cmd *tapi.Message) []tapi.Chattable {
 func (h *MessageHandler) HandleMessage(msg *tapi.Message) []tapi.Chattable {
 	mf := telegramfmt.NewMessageFormatter(msg.From.ID)
 
+	slog.Debug("Handling message", "text", msg.Text, "username", msg.From.UserName)
 	state, err := h.StateRepo.GetState(msg.From.ID)
 	if err != nil {
 		slog.Error("Failed to get state for user", "user_id", msg.From.ID, "error", err)
@@ -231,7 +233,6 @@ func (h *MessageHandler) HandleSubscribeFromCrashedNUFile(cmd *tapi.Message) []t
 }
 
 func (h *MessageHandler) parseCommandArguments(args string) (string, []string, error) {
-	slog.Debug("Parsing command arguments", "args", args)
 	fields := strings.Fields(args)
 
 	courseName := fields[0]
@@ -241,7 +242,6 @@ func (h *MessageHandler) parseCommandArguments(args string) (string, []string, e
 		ind++
 	}
 
-	slog.Debug("Parsed course name", "courseName", courseName, "index", ind)
 	if ind == len(fields) {
 		return "", nil, ErrNotEnoughParams
 	}
@@ -264,7 +264,7 @@ func (h *MessageHandler) parseCommandArguments(args string) (string, []string, e
 		}
 		section[i] = sec
 	}
-	slog.Debug("Parsing command arguments", "section", section)
+
 	return telegramfmt.StandartizeCourseName(courseName), section, nil
 
 }
@@ -373,7 +373,6 @@ func (h *MessageHandler) HandleCallback(callback *tapi.CallbackQuery) []tapi.Cha
 
 	cmds := strings.Split(callback.Data, ";")
 
-	slog.Debug("Handling callback", "callback_data", callback.Data, "commands", cmds)
 	for _, cmd := range cmds {
 		args := strings.Split(cmd, "_")
 
