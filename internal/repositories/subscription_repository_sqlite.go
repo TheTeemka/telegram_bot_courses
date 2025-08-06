@@ -172,8 +172,9 @@ func (r *sqliteSubscriptionRepo) Update(sub *models.CourseSubscription) error {
         WHERE telegram_id = ? AND course = ? AND section = ?
     `
 
+	location := time.FixedZone("UTC+5", 5*60*60)
 	_, err := r.db.Exec(query,
-		time.Now(),
+		time.Now().In(location),
 		sub.IsFull,
 		sub.TelegramID,
 		sub.Course,

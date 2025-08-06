@@ -19,6 +19,7 @@ import (
 
 func main() {
 	cfg := config.LoadConfig()
+	cfg.EnvStage = logging.StageDev //TODO:REMOVE
 
 	logging.SetSlog(cfg.EnvStage)
 

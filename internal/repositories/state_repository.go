@@ -36,7 +36,8 @@ func (r *stateRepository) Upsert(telegram_id int64, state string) error {
 		INSERT OR REPLACE INTO chat_states (telegram_id, state, updated_at)
         VALUES (?, ?, ?)`
 
-	_, err := r.db.Exec(query, telegram_id, state, time.Now())
+	location := time.FixedZone("UTC+5", 5*60*60)
+	_, err := r.db.Exec(query, telegram_id, state, time.Now().In(location))
 	if err != nil {
 		return fmt.Errorf("upserting chat state: %w", err)
 	}

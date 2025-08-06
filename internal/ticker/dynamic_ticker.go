@@ -7,41 +7,41 @@ import (
 
 var registrationTickerIntervalConfig = []TickerIntervalConfig{
 	{
-		Till:  parseTime("2025-09-06T09:00:00+05:00"),
+		Till:  parseTime("2025-08-06T09:00:00+05:00"),
 		Label: "First Priority for 4,5,6 UG",
 	},
 	{
-		Till:  parseTime("2025-09-06T11:00:00+05:00"),
+		Till:  parseTime("2025-08-06T11:00:00+05:00"),
 		Label: "First Priority for 3 UG",
 	},
 	{
-		Till:  parseTime("2025-09-06T13:00:00+05:00"),
+		Till:  parseTime("2025-08-06T13:00:00+05:00"),
 		Label: "First Priority for 2 UG",
 	},
 	{
-		Till:  parseTime("2025-09-13T09:00:00+05:00"),
+		Till:  parseTime("2025-08-13T09:00:00+05:00"),
 		Label: "First Priority for 1 UG",
 	},
 
 	{
-		Till:  parseTime("2025-09-14T09:00:00+05:00"),
+		Till:  parseTime("2025-08-14T09:00:00+05:00"),
 		Label: "Second Priority for 4,5,6 UG",
 	},
 	{
-		Till:  parseTime("2025-09-14T11:00:00+05:00"),
+		Till:  parseTime("2025-08-14T11:00:00+05:00"),
 		Label: "Second Priority for 3 UG",
 	},
 	{
-		Till:  parseTime("2025-09-14T13:00:00+05:00"),
+		Till:  parseTime("2025-08-14T13:00:00+05:00"),
 		Label: "Second Priority for 2 UG",
 	},
 	{
-		Till:  parseTime("2025-09-14T15:00:00+05:00"),
+		Till:  parseTime("2025-08-14T15:00:00+05:00"),
 		Label: "Second Priority for 1 UG",
 	},
 
 	{
-		Till:  parseTime("2025-09-14T15:00:00+05:00"),
+		Till:  parseTime("2025-08-14T15:00:00+05:00"),
 		Label: "Third Priority for All UG",
 	},
 }
@@ -102,12 +102,17 @@ func (t *DynamicTicker) Stop() {
 }
 
 func (t *DynamicTicker) getDuration() time.Duration {
+	location := time.FixedZone("UTC+5", 5*60*60)
+
 	cur := t.defaultTimeInterval
 	for _, tt := range t.TickerIntervals {
-		if isWithin(time.Now(), tt) {
+		now := time.Now().In(location)
+		if isWithin(now, tt) {
 			cur = tt.Interval
-		} else if isWithin(time.Now().Add(cur), tt) {
-			cur = time.Until(tt.Till)
+		}
+		// slog.Debug("Checking ticker interval", "after", tt.From.After(now), "before", tt.From.Before(now.Add(cur)), "current", cur.String(), "from", tt.From.String(), "now+add", now.Add(cur).String())
+		if tt.From.After(now) && tt.From.Before(now.Add(cur)) {
+			cur = time.Until(tt.From)
 		}
 	}
 
