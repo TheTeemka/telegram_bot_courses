@@ -45,13 +45,13 @@ func (r *StatisticsRepository) Run(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			err := r.Upsert()
+			_, err := r.Upsert()
 			if err != nil {
 				slog.Error("Failed to upsert statistics", "error", err)
 			}
 			return
 		case <-ticker.C:
-			err := r.Upsert()
+			_, err := r.Upsert()
 			if err != nil {
 				slog.Error("Failed to upsert statistics", "error", err)
 			}
@@ -59,7 +59,7 @@ func (r *StatisticsRepository) Run(ctx context.Context) {
 	}
 }
 
-func (r *StatisticsRepository) Upsert() error {
+func (r *StatisticsRepository) Upsert() (int, error) {
 	r.mux.Lock()
 
 	slog.Info("Upserting statistics", "len", len(r.Stats))
@@ -71,25 +71,27 @@ func (r *StatisticsRepository) Upsert() error {
 
 	tx, err := r.db.BeginTx(context.Background(), nil)
 	if err != nil {
-		return fmt.Errorf("beginning transaction: %w", err)
+		return 0, fmt.Errorf("beginning transaction: %w", err)
 	}
+	cnt := 0
 	for action, count := range r.Stats {
 		_, err := tx.Exec(query, action, count)
 		if err != nil {
 			if err := tx.Rollback(); err != nil {
-				return fmt.Errorf("rolling back transaction: %w", err)
+				return cnt, fmt.Errorf("rolling back transaction: %w", err)
 			}
-			return fmt.Errorf("upserting chat state: %w", err)
+			return cnt, fmt.Errorf("upserting chat state: %w", err)
 		}
 		delete(r.Stats, action)
+		cnt++
 	}
 	err = tx.Commit()
 	if err != nil {
-		return fmt.Errorf("committing transaction: %w", err)
+		return cnt, fmt.Errorf("committing transaction: %w", err)
 	}
 	r.mux.Unlock()
 
-	return nil
+	return cnt, nil
 }
 
 // func (r *StatisticsRepository) GetAll() error {

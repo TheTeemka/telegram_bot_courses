@@ -77,7 +77,9 @@ func (r *CourseRepository) Parse() error {
 	if err != nil {
 		return err
 	}
-
+	for _, c := range cources {
+		c.Sections = models.SortSections(c.Sections)
+	}
 	r.Courses = cources
 
 	location := time.FixedZone("UTC+5", 5*60*60)
@@ -278,6 +280,11 @@ func parseXLS(file io.ReadSeeker) (string, map[string]*models.Course, []string, 
 	sectionAbbrList := make([]string, 0, len(sectionName))
 	for abbr := range sectionName {
 		sectionAbbrList = append(sectionAbbrList, abbr)
+	}
+
+	for key, c := range courses {
+		c.Sections = models.SortSections(c.Sections)
+		courses[key] = c
 	}
 
 	return semesterName.GetString(), courses, sectionAbbrList, nil

@@ -103,7 +103,7 @@ func (h *MessageHandler) HandleCommand(cmd *tapi.Message) []tapi.Chattable {
 	case "list":
 		return h.ListSubscriptions(cmd)
 	case "donate":
-		return mf.ImmediateMessage(fmt.Sprintf("\n Toss a coin to your humble bot,\nO student of fate, \nWhen rivals draw near, and\nthe registration deadline won’t wait\\.\nA humble donation, a whisper, a nudge,\nTo tilt odds in your favor in timetable wars\n\nKaspi: `%s`\n\\[Click to the number to copy\\]", h.KaspiCard))
+		return mf.ImmediateMessage(fmt.Sprintf("\n Toss a coin to your humble bot,\nO student of fate, \nWhen rivals draw near, and\nthe registration deadline won’t wait.\nA humble donation, a whisper, a nudge,\nTo tilt odds in your favor in timetable wars\n\nKaspi: <code>%s<code>\n[Click to the number to copy]", h.KaspiCard))
 	case "faq":
 		return mf.ImmediateMessage(h.faq)
 	case "nextupdatetime":
@@ -128,15 +128,16 @@ func (h *MessageHandler) HandleMessage(msg *tapi.Message) []tapi.Chattable {
 
 	slog.Debug("Handling message", "text", msg.Text, "username", msg.From.UserName)
 	state, err := h.StateRepo.GetState(msg.From.ID)
+
 	if err != nil {
 		slog.Error("Failed to get state for user", "user_id", msg.From.ID, "error", err)
-		return mf.ImmediateMessage("⚠️ Failed to retrieve your state\\. Please try again later\\.")
+		return mf.ImmediateMessage("⚠️ Failed to retrieve your state. Please try again later.")
 	}
 
 	err = h.StateRepo.Upsert(msg.From.ID, "")
 	if err != nil {
 		slog.Error("Failed to clear state for user", "user_id", msg.From.ID, "error", err)
-		return mf.ImmediateMessage("⚠️ Failed to clear your state\\. Please try again later\\.")
+		return mf.ImmediateMessage("⚠️ Failed to clear your state. Please try again later.")
 	}
 
 	switch state {
@@ -165,11 +166,11 @@ func (h *MessageHandler) HandleSubscribe(cmd *tapi.Message) []tapi.Chattable {
 	if err != nil {
 		switch err {
 		case ErrNotEnoughParams:
-			return mf.ImmediateMessage("❌ You haven't provided  enough arguments\\. If you want to try again \\, first call /subscribe")
+			return mf.ImmediateMessage("❌ You haven't provided enough arguments. If you want to try again, first call /subscribe")
 		case InvalidParams:
-			return mf.ImmediateMessage("❌ You haven't provided valid parameters for the command\\. If you want to try again \\, first call /subscribe")
+			return mf.ImmediateMessage("❌ You haven't provided valid parameters for the command. If you want to try again, first call /subscribe")
 		}
-		return mf.ImmediateMessage("❌ You haven't provided coursename\\. If you want to try again\\, first call /subscribe")
+		return mf.ImmediateMessage("❌ You haven't provided coursename. If you want to try again, first call /subscribe")
 	}
 
 	if _, exists := h.CoursesRepo.GetCourse(courseName); !exists {
@@ -186,7 +187,7 @@ func (h *MessageHandler) HandleSubscribe(cmd *tapi.Message) []tapi.Chattable {
 			"error", err,
 			"user_id", cmd.From.ID,
 			"course", courseName)
-		return mf.ImmediateMessage("⚠️ Failed to subscribe to the course\\. Please try again\\.")
+		return mf.ImmediateMessage("⚠️ Failed to subscribe to the course. Please try again.")
 	}
 
 	return mf.ImmediateMessage(fmt.Sprintf("✅ Successfully subscribed to *%s \\(%s\\)*", courseName, strings.Join(sectionNames, ", ")))
@@ -198,7 +199,7 @@ func (h *MessageHandler) HandleSubscribeFromCrashedNUFile(cmd *tapi.Message) []t
 	buf, err := h.DownloadFile(cmd.Document.FileID)
 	if err != nil {
 		slog.Error("Failed to download file", "error", err, "file_id", cmd.Document.FileID)
-		return mf.ImmediateMessage("⚠️ Failed to download the file\\. Please try again later\\.")
+		return mf.ImmediateMessage("⚠️ Failed to download the file. Please try again later.")
 	}
 
 	str := string(buf)
@@ -210,7 +211,7 @@ func (h *MessageHandler) HandleSubscribeFromCrashedNUFile(cmd *tapi.Message) []t
 			return r == '|'
 		})
 		if len(fields) < 2 {
-			mf.AddString(fmt.Sprintf("⚠️ Invalid line format\\: %s", lines[ind]))
+			mf.AddString(fmt.Sprintf("⚠️ Invalid line format: %s", lines[ind]))
 			continue
 		}
 
@@ -223,7 +224,7 @@ func (h *MessageHandler) HandleSubscribeFromCrashedNUFile(cmd *tapi.Message) []t
 
 		err := h.SubscriptionRepo.Subscribe(cmd.From.ID, courseName, section)
 		if err != nil {
-			mf.AddString(fmt.Sprintf("⚠️ Failed to subscribe to %s\\. Please try again\\.", courseName))
+			mf.AddString(fmt.Sprintf("⚠️ Failed to subscribe to %s. Please try again.", courseName))
 			continue
 		}
 		mf.AddString(fmt.Sprintf("✅ Successfully subscribed to %s\n", lines[ind]))
@@ -290,7 +291,7 @@ func (h *MessageHandler) HandleUnsubscribe(cmd *tapi.Message) []tapi.Chattable {
 			"error", err,
 			"user_id", cmd.From.ID,
 			"course", courseName)
-		return mf.ImmediateMessage("⚠️ Failed to unsubscribe to the course\\. Please try again\\.")
+		return mf.ImmediateMessage("⚠️ Failed to unsubscribe to the course. Please try again.")
 	}
 
 	return mf.ImmediateMessage(fmt.Sprintf("✅ Successfully unsubscribed from *%s*", courseName))
@@ -304,7 +305,7 @@ func (h *MessageHandler) Clear(cmd *tapi.Message) []tapi.Chattable {
 		slog.Error("Failed to clear subscriptions",
 			"error", err,
 			"user_id", cmd.From.ID)
-		return mf.ImmediateMessage("⚠️ Failed to clear subscriptions\\. Please try again\\.")
+		return mf.ImmediateMessage("⚠️ Failed to clear subscriptions. Please try again.")
 	}
 
 	return mf.ImmediateMessage("✅ Successfully cleared")
@@ -315,10 +316,10 @@ func (h *MessageHandler) ListSubscriptions(cmd *tapi.Message) []tapi.Chattable {
 	subs, err := h.SubscriptionRepo.GetSubscriptions(cmd.From.ID)
 	if err != nil {
 		slog.Error("⚠️ Failed to get subscriptions", "err", err)
-		return mf.ImmediateMessage("⚠️ Failed to retrieve your subscriptions\\. Please try again later\\.")
+		return mf.ImmediateMessage("⚠️ Failed to retrieve your subscriptions. Please try again later.")
 	}
 	if len(subs) == 0 {
-		return mf.ImmediateMessage("⚠️ You haven't subscribed to any courses yet\\.")
+		return mf.ImmediateMessage("⚠️ You haven't subscribed to any courses yet.")
 	}
 
 	var sb strings.Builder
@@ -359,7 +360,8 @@ func (h *MessageHandler) HandleCourseCode(updateMsg *tapi.Message) []tapi.Chatta
 func (h *MessageHandler) HandleCommandUnknown(cmd *tapi.Message) []tapi.Chattable {
 	mf := telegramfmt.NewMessageFormatter(cmd.From.ID)
 
-	return mf.ImmediateMessage(fmt.Sprintf("⚠️ Unknown State \\(/%s\\)", cmd.Command()))
+	return mf.ImmediateMessage(fmt.Sprintf("⚠️ Unknown State (/%s)", cmd.Command()))
+
 }
 
 func (h *MessageHandler) HandleCommandStart(cmd *tapi.Message) []tapi.Chattable {
@@ -408,11 +410,11 @@ func (h *MessageHandler) HandleCallback(callback *tapi.CallbackQuery) []tapi.Cha
 func (h *MessageHandler) parsestat(cmd *tapi.Message) []tapi.Chattable {
 	mf := telegramfmt.NewMessageFormatter(cmd.From.ID)
 
-	err := h.StatisticsRepo.Upsert()
+	cnt, err := h.StatisticsRepo.Upsert()
 	if err != nil {
-		return mf.ImmediateMessage("Statistics updated error\\.\n" + err.Error())
+		return mf.ImmediateMessage("Statistics updated error.\n" + err.Error())
 	} else {
-		return mf.ImmediateMessage("Statistics updated successfully\\.")
+		return mf.ImmediateMessage(fmt.Sprintf("Statistics updated successfully with %d changes", cnt))
 	}
 }
 
