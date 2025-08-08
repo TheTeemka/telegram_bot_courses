@@ -115,9 +115,9 @@ func (h *MessageHandler) HandleCommand(cmd *tapi.Message) []tapi.Chattable {
 	h.StateRepo.Upsert(cmd.From.ID, cmd.Command())
 	switch cmd.Command() {
 	case "subscribe":
-		return mf.ImmediateMessage("Please provide a course abbr and section as in docs.\nFormat: <code>[Course Name] [Course Sections]<code>.\nExample: 'PHYS 161 2L 1PLB 2R 2r 3plb 3L'\n\nYou can also provide .txt file from crashed.nu")
+		return mf.ImmediateMessage("Please provide a course abbr and section as in docs.\nFormat: <code>[Course Name] [Course Sections]</code>.\nExample: 'PHYS 161 2L 1PLB 2R 2r 3plb 3L'\n\nYou can also provide .txt file from crashed.nu")
 	case "unsubscribe":
-		return mf.ImmediateMessage("Please provide a course abbr as in docs.\nFormat: <code>`[Course Name]<code>.\nExample: 'PHYS161'.")
+		return mf.ImmediateMessage("Please provide a course abbr as in docs.\nFormat: <code>`[Course Name]</code>.\nExample: 'PHYS161'.")
 	default:
 		return h.HandleCommandUnknown(cmd)
 	}
