@@ -260,7 +260,6 @@ func parseXLS(file io.ReadSeeker) (string, map[string]*models.Course, []string, 
 		possibleAbbrs := strings.Split(_abbrName, "/")
 		if len(possibleAbbrs) == 2 {
 			possibleAbbrs = append(possibleAbbrs, _abbrName)
-			slog.Debug("Multiple course abbreviations found", "abbreviations", possibleAbbrs)
 		}
 		for _, abbr := range possibleAbbrs { // To handle TUR 280/LING 280
 			if _, ok := courses[abbr]; !ok {
