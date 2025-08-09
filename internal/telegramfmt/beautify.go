@@ -28,7 +28,7 @@ func FormatCourseInDetails(course *models.Course, semesterName string, lastTimeP
 		sb.WriteString(formatSection(section.SectionName, section.Size, section.Cap))
 	}
 	timeStr := Escape(lastTimeParse.Format("Last Update on: 15:04:05 02.01.2006"))
-	sb.WriteString(fmt.Sprintf("\n<i>%s</i>", timeStr))
+	sb.WriteString(fmt.Sprintf("\n<i>%s</i>\n @nu_cources_bot", timeStr))
 
 	return sb.String()
 }
@@ -76,6 +76,10 @@ func StandartizeCourseName(s string) string {
 		if r >= '0' && r <= '9' && !numStart {
 			result.WriteRune(' ')
 			numStart = true
+		} else if numStart && r == '/' {
+			result.WriteRune('/')
+			numStart = false
+			continue
 		}
 		result.WriteRune(r)
 	}

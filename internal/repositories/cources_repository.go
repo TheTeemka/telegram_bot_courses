@@ -219,17 +219,18 @@ func parseXLS(file io.ReadSeeker) (string, map[string]*models.Course, []string, 
 	courses := make(map[string]*models.Course)
 	sectionName := make(map[string]bool)
 	for _, row := range rows {
-		abbrName, err := GetString(row.GetCol(2)) //Course Abbr
-		if err != nil || len(abbrName) == 0 {
+		_abbrName, err := GetString(row.GetCol(2)) //Course Abbr
+		if err != nil || len(_abbrName) == 0 {
 			continue
 		}
+		_abbrName = strings.ReplaceAll(_abbrName, "\n", " ")
 
 		section, err := GetString(row.GetCol(3)) //S/T
 		if err != nil {
 			continue
 		}
 
-		courseKey := abbrName + "_" + section
+		courseKey := _abbrName + "_" + section
 		if _, ok := duplicates[courseKey]; ok {
 			// slog.Warn("Duplicate course section found, skipping")
 			continue
@@ -255,26 +256,34 @@ func parseXLS(file io.ReadSeeker) (string, map[string]*models.Course, []string, 
 		if err != nil {
 			continue
 		}
-		if _, ok := courses[abbrName]; !ok {
-			fullName, err := GetString(row.GetCol(4)) //Course Title
-			if err != nil {
-				continue
-			}
-			courses[abbrName] = &models.Course{
-				AbbrName: abbrName,
-				FullName: fullName,
-			}
+
+		possibleAbbrs := strings.Split(_abbrName, "/")
+		if len(possibleAbbrs) == 2 {
+			possibleAbbrs = append(possibleAbbrs, _abbrName)
+			slog.Debug("Multiple course abbreviations found", "abbreviations", possibleAbbrs)
 		}
+		for _, abbr := range possibleAbbrs { // To handle TUR 280/LING 280
+			if _, ok := courses[abbr]; !ok {
+				fullName, err := GetString(row.GetCol(4)) //Course Title
+				if err != nil {
+					continue
+				}
+				courses[abbr] = &models.Course{
+					AbbrName: _abbrName,
+					FullName: fullName,
+				}
+			}
 
-		sectionName[trimNumbersFromPrefix(section)] = true
+			sectionName[trimNumbersFromPrefix(section)] = true
 
-		crs := courses[abbrName]
-		crs.Sections = append(crs.Sections, &models.Section{
-			SectionName: section,
-			Size:        enNum,
-			Cap:         enCap,
-		})
-		courses[abbrName] = crs
+			crs := courses[abbr]
+			crs.Sections = append(crs.Sections, &models.Section{
+				SectionName: section,
+				Size:        enNum,
+				Cap:         enCap,
+			})
+			courses[abbr] = crs
+		}
 	}
 
 	sectionAbbrList := make([]string, 0, len(sectionName))

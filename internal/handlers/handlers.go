@@ -103,7 +103,7 @@ func (h *MessageHandler) HandleCommand(cmd *tapi.Message) []tapi.Chattable {
 	case "list":
 		return h.ListSubscriptions(cmd)
 	case "donate":
-		return mf.ImmediateMessage(fmt.Sprintf("\n Toss a coin to your humble bot,\nO student of fate, \nWhen rivals draw near, and\nthe registration deadline won’t wait.\nA humble donation, a whisper, a nudge,\nTo tilt odds in your favor in timetable wars\n\nKaspi: <code>%s<code>\n[Click to the number to copy]", h.KaspiCard))
+		return mf.ImmediateMessage(fmt.Sprintf("\n Toss a coin to your humble bot,\nO student of fate, \nWhen rivals draw near, and\nthe registration deadline won’t wait.\nA humble donation, a whisper, a nudge,\nTo tilt odds in your favor in timetable wars\n\nKaspi: <code>%s</code>\n[Click to the number to copy]", h.KaspiCard))
 	case "faq":
 		return mf.ImmediateMessage(h.faq)
 	case "nextupdatetime":
@@ -162,7 +162,7 @@ func (h *MessageHandler) HandleSubscribe(cmd *tapi.Message) []tapi.Chattable {
 	}
 
 	mf := telegramfmt.NewMessageFormatter(cmd.From.ID)
-	courseName, sectionNames, err := h.parseCommandArguments(cmd.Text)
+	courseAbbr, sectionNames, err := h.parseCommandArguments(cmd.Text)
 	if err != nil {
 		switch err {
 		case ErrNotEnoughParams:
@@ -173,24 +173,26 @@ func (h *MessageHandler) HandleSubscribe(cmd *tapi.Message) []tapi.Chattable {
 		return mf.ImmediateMessage("❌ You haven't provided coursename. If you want to try again, first call /subscribe")
 	}
 
-	if _, exists := h.CoursesRepo.GetCourse(courseName); !exists {
-		return mf.ImmediateNotFoundCourse(courseName, "for subscription")
+	course, exists := h.CoursesRepo.GetCourse(courseAbbr)
+	courseAbbr = course.AbbrName
+	if !exists {
+		return mf.ImmediateNotFoundCourse(courseAbbr, "for subscription")
 	}
 
-	if valid, sect := h.CoursesRepo.CheckForValidness(courseName, sectionNames); !valid {
-		return mf.ImmediateNotFoundCourseSection(courseName, sect, "for subscription")
+	if valid, sect := h.CoursesRepo.CheckForValidness(courseAbbr, sectionNames); !valid {
+		return mf.ImmediateNotFoundCourseSection(courseAbbr, sect, "for subscription")
 	}
 
-	err = h.SubscriptionRepo.Subscribe(cmd.From.ID, courseName, sectionNames)
+	err = h.SubscriptionRepo.Subscribe(cmd.From.ID, courseAbbr, sectionNames)
 	if err != nil {
 		slog.Error("Failed to subscribe",
 			"error", err,
 			"user_id", cmd.From.ID,
-			"course", courseName)
+			"course", courseAbbr)
 		return mf.ImmediateMessage("⚠️ Failed to subscribe to the course. Please try again.")
 	}
 
-	return mf.ImmediateMessage(fmt.Sprintf("✅ Successfully subscribed to *%s \\(%s\\)*", courseName, strings.Join(sectionNames, ", ")))
+	return mf.ImmediateMessage(fmt.Sprintf("✅ Successfully subscribed to <b>%s (%s)</b>", courseAbbr, strings.Join(sectionNames, ", ")))
 }
 
 func (h *MessageHandler) HandleSubscribeFromCrashedNUFile(cmd *tapi.Message) []tapi.Chattable {
@@ -215,7 +217,7 @@ func (h *MessageHandler) HandleSubscribeFromCrashedNUFile(cmd *tapi.Message) []t
 			continue
 		}
 
-		courseName := fields[0]
+		courseName := telegramfmt.StandartizeCourseName(fields[0])
 		section := fields[1:]
 		if valid, sect := h.CoursesRepo.CheckForValidness(courseName, section); !valid {
 			mf.AddNotFoundCourseSection(courseName, sect)
@@ -294,7 +296,7 @@ func (h *MessageHandler) HandleUnsubscribe(cmd *tapi.Message) []tapi.Chattable {
 		return mf.ImmediateMessage("⚠️ Failed to unsubscribe to the course. Please try again.")
 	}
 
-	return mf.ImmediateMessage(fmt.Sprintf("✅ Successfully unsubscribed from *%s*", courseName))
+	return mf.ImmediateMessage(fmt.Sprintf("✅ Successfully unsubscribed from <b>%s</b>", courseName))
 }
 
 func (h *MessageHandler) Clear(cmd *tapi.Message) []tapi.Chattable {
@@ -340,6 +342,9 @@ func (h *MessageHandler) ListSubscriptions(cmd *tapi.Message) []tapi.Chattable {
 			sb.WriteString(telegramfmt.FormatCourseSection(sub.Course, sub.Section, section.Size, section.Cap))
 		}
 	}
+	timeStr := h.CoursesRepo.LastTimeParsed.Format("Last Update on: 15:04:05 02.01.2006")
+	sb.WriteString(fmt.Sprintf("\n<i>%s</i> \n@nu_cources_bot", timeStr))
+
 	mf.AddString(sb.String())
 	return mf.Messages()
 }
