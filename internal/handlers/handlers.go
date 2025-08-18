@@ -73,7 +73,7 @@ func (h *MessageHandler) HandleUpdate(update tapi.Update) []tapi.Chattable {
 
 }
 
-var knownCommands = []string{"start", "subscribe", "unsubscribe", "list", "donate", "faq", "parsestat", "nextupdatetime"}
+var knownCommands = []string{"start", "subscribe", "unsubscribe", "list", "donate", "faq", "parsestat", "nextupdatetime", "syncdata1"}
 
 func (h *MessageHandler) CommandsList() tapi.SetMyCommandsConfig {
 	return tapi.NewSetMyCommands(
@@ -110,6 +110,8 @@ func (h *MessageHandler) HandleCommand(cmd *tapi.Message) []tapi.Chattable {
 		return mf.ImmediateMessage(fmt.Sprintf("Next update time is: %s", telegramfmt.Escape(h.CoursesRepo.NextTimeToParse.Format("15:04:05 02.01.2006"))))
 	case "parsestat":
 		return AuthAdmin(h.AdminID, h.parsestat)(cmd)
+	case "syncdata1":
+		return AuthAdmin(h.AdminID, h.syncdata1)(cmd)
 	}
 
 	h.StateRepo.Upsert(cmd.From.ID, cmd.Command())
@@ -167,7 +169,7 @@ func (h *MessageHandler) HandleSubscribe(cmd *tapi.Message) []tapi.Chattable {
 		switch err {
 		case ErrNotEnoughParams:
 			return mf.ImmediateMessage("❌ You haven't provided enough arguments. If you want to try again, first call /subscribe")
-		case InvalidParams:
+		case ErrInvalidParams:
 			return mf.ImmediateMessage("❌ You haven't provided valid parameters for the command. If you want to try again, first call /subscribe")
 		}
 		return mf.ImmediateMessage("❌ You haven't provided coursename. If you want to try again, first call /subscribe")
@@ -253,7 +255,7 @@ func (h *MessageHandler) parseCommandArguments(args string) (string, []string, e
 	for i := ind; i < len(fields); i++ {
 		if len(fields[i]) == 0 || !isDigit(fields[i][0]) {
 			if len(section) == 0 {
-				return "", nil, InvalidParams
+				return "", nil, ErrInvalidParams
 			}
 			section[len(section)-1] += fields[i]
 		} else {
@@ -263,7 +265,7 @@ func (h *MessageHandler) parseCommandArguments(args string) (string, []string, e
 	for i := range section {
 		sec, ok := telegramfmt.StandartizeSectionName(section[i], h.CoursesRepo.SectionAbbrList)
 		if !ok {
-			return "", nil, InvalidParams
+			return "", nil, ErrInvalidParams
 		}
 		section[i] = sec
 	}
@@ -421,6 +423,17 @@ func (h *MessageHandler) parsestat(cmd *tapi.Message) []tapi.Chattable {
 	} else {
 		return mf.ImmediateMessage(fmt.Sprintf("Statistics updated successfully with %d changes", cnt))
 	}
+}
+
+func (h *MessageHandler) syncdata1(cmd *tapi.Message) []tapi.Chattable {
+	mf := telegramfmt.NewMessageFormatter(cmd.From.ID)
+
+	err := h.CoursesRepo.Parse()
+	if err != nil {
+		slog.Error("Failed to parse courses", "error", err)
+		return mf.ImmediateMessage("⚠️ Failed to sync data. Please try again later.")
+	}
+	return mf.ImmediateMessage(fmt.Sprintf("Data synced successfully.\nNext update time is: %s", h.CoursesRepo.LastTimeParsed.Format("15:04:05 02.01.2006")))
 }
 
 func (h *MessageHandler) DownloadFile(fileID string) ([]byte, error) {

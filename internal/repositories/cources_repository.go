@@ -101,11 +101,14 @@ func (r *CourseRepository) ParseExampleData() error {
 	var b []byte
 	file, err := os.Open("example.xls")
 	if err != nil {
-
 		if !errors.Is(err, os.ErrNotExist) {
 			return fmt.Errorf("opening example file: %w", err)
 		}
 		b, err = fetch(r.CoursesURL)
+		if err != nil {
+			return fmt.Errorf("fetching example file: %w", err)
+		}
+
 		file, err = os.Create("example.xls")
 		if err != nil {
 			return nil
