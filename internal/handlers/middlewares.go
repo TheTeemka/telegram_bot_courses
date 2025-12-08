@@ -17,3 +17,13 @@ func AuthAdmin(authGroup []int64, next handler) handler {
 		return next(msg)
 	}
 }
+
+func AuthAllowed(allowedGroup []int64, next handler) handler {
+	return func(msg *tapi.Message) []tapi.Chattable {
+		if len(allowedGroup) == 0 && slices.Contains(allowedGroup, msg.From.ID) {
+			return nil
+		}
+
+		return next(msg)
+	}
+}

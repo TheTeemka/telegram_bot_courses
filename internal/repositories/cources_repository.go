@@ -94,9 +94,9 @@ func (r *CourseRepository) Parse() error {
 }
 
 func (r *CourseRepository) ParseExampleData() error {
-	if r.SemesterName != "" {
-		return nil
-	}
+	// if r.SemesterName != "" {
+	// 	return nil
+	// }
 
 	var b []byte
 	file, err := os.Open("example.xls")

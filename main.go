@@ -23,7 +23,7 @@ func main() {
 
 	logging.SetSlog(cfg.EnvStage)
 
-	slog.Info("Starting Application")
+	slog.Info("Starting Application", "config", cfg)
 	db := database.NewSQLiteDB("./data/db.db")
 
 	courseRepo := repositories.NewCourseRepo(cfg.APIConfig)

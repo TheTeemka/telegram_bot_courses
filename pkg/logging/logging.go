@@ -1,6 +1,7 @@
 package logging
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"log/slog"
@@ -34,13 +35,27 @@ func SetSlog(stage string) {
 
 	log.SetOutput(w)
 	h := slog.NewJSONHandler(w, &slog.HandlerOptions{
-		Level: l,
-		// AddSource: stage == StageDev,
+		Level:     l,
+		AddSource: true,
 		ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
-			if a.Key == slog.SourceKey {
-				source, _ := a.Value.Any().(*slog.Source)
-				if source != nil {
-					source.File = filepath.Base(source.File)
+			if a.Key != slog.SourceKey {
+				return a
+			}
+
+			switch v := a.Value.Any().(type) {
+			case *slog.Source:
+				if v != nil {
+					short := filepath.Base(v.File)
+					a.Value = slog.StringValue(fmt.Sprintf("%s:%d", short, v.Line))
+				}
+			case slog.Source:
+				short := filepath.Base(v.File)
+				a.Value = slog.StringValue(fmt.Sprintf("%s:%d", short, v.Line))
+			default:
+				// Fallback: shorten the string representation
+				s := a.Value.String()
+				if s != "" {
+					a.Value = slog.StringValue(filepath.Base(s))
 				}
 			}
 			return a

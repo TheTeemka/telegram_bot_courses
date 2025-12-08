@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/TheTeemka/telegram_bot_cources/internal/config"
 	"github.com/TheTeemka/telegram_bot_cources/internal/repositories"
 	"github.com/TheTeemka/telegram_bot_cources/internal/telegramfmt"
 	tapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -21,27 +22,28 @@ type MessageHandler struct {
 	StatisticsRepo   *repositories.StatisticsRepository
 	Private          bool
 	AdminID          []int64
+	AllowedUsersID   []int64
 
 	welcomeText string
 	faq         string
 	KaspiCard   string
 }
 
-func NewMessageHandler(botAPI *tapi.BotAPI, adminID []int64, private bool, kaspiCard string,
+func NewMessageHandler(botAPI *tapi.BotAPI, cfg config.BotConfig,
 	coursesRepo *repositories.CourseRepository,
 	subscriptionRepo repositories.CourseSubscriptionRepository,
 	stateRepo repositories.StateRepository,
 	statisticsRepo *repositories.StatisticsRepository) *MessageHandler {
 
 	return &MessageHandler{
-		BotAPI:  botAPI,
-		AdminID: adminID,
-		Private: private,
+		BotAPI:         botAPI,
+		AdminID:        cfg.AdminID,
+		Private:        cfg.IsPrivate,
+		AllowedUsersID: cfg.AllowedUsersID,
+		faq:            generateFAQText(),
+		welcomeText:    generateWelcomeText(coursesRepo.SemesterName),
 
-		faq:         generateFAQText(),
-		welcomeText: generateWelcomeText(coursesRepo.SemesterName),
-
-		KaspiCard:        kaspiCard,
+		KaspiCard:        cfg.KaspiCard,
 		CoursesRepo:      coursesRepo,
 		StateRepo:        stateRepo,
 		SubscriptionRepo: subscriptionRepo,
@@ -60,10 +62,9 @@ func (h *MessageHandler) HandleUpdate(update tapi.Update) []tapi.Chattable {
 	}
 
 	if h.Private {
-		if update.Message.IsCommand() {
-			return AuthAdmin(h.AdminID, h.HandleCommand)(update.Message)
+		if !slices.Contains(h.AllowedUsersID, update.Message.From.ID) && !slices.Contains(h.AdminID, update.Message.From.ID) {
+			return nil
 		}
-		return AuthAdmin(h.AdminID, h.HandleMessage)(update.Message)
 	}
 
 	if update.Message.IsCommand() {
@@ -83,7 +84,7 @@ func (h *MessageHandler) CommandsList() tapi.SetMyCommandsConfig {
 		tapi.BotCommand{Command: "list", Description: "List your subscriptions"},
 		tapi.BotCommand{Command: "faq", Description: "Frequently Asked Questions"},
 		// tapi.BotCommand{Command: "gatekeep", Description: "gatekeep your course and section of choice"},
-		tapi.BotCommand{Command: "donate", Description: "Donate to the bot"},
+		// tapi.BotCommand{Command: "donate", Description: "Donate to the bot"},
 		tapi.BotCommand{Command: "nextupdatetime", Description: "next sync time"},
 	)
 }

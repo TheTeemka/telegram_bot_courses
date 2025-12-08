@@ -17,11 +17,12 @@ type Config struct {
 }
 
 type BotConfig struct {
-	Token        string
-	AdminID      []int64
-	WorkerNumber int
-	IsPrivate    bool
-	KaspiCard    string
+	Token          string
+	AdminID        []int64
+	AllowedUsersID []int64
+	WorkerNumber   int
+	IsPrivate      bool
+	KaspiCard      string
 }
 
 type APIConfig struct {
@@ -69,6 +70,8 @@ func LoadConfig() *Config {
 		if len(cfg.BotConfig.AdminID) == 0 {
 			panic("TELEGRAM_ADMIN_ID environment variable is not set or invalid")
 		}
+		cfg.BotConfig.AllowedUsersID = parseInt64Array(os.Getenv("TELEGRAM_ALLOWED_USERS_ID"))
+
 	}
 
 	return cfg
@@ -84,7 +87,7 @@ func MustInt64(s string) int64 {
 
 func parseInt64Array(s string) []int64 {
 	fields := strings.Split(s, ",")
-	arr := make([]int64, len(fields))
+	arr := make([]int64, 0, len(fields))
 	for _, f := range fields {
 		arr = append(arr, MustInt64(f))
 	}
