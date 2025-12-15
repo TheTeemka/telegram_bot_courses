@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/TheTeemka/telegram_bot_cources/internal/config"
 	"github.com/TheTeemka/telegram_bot_cources/internal/handlers"
@@ -73,6 +74,8 @@ func (bot *TelegramBot) Start(ctx context.Context, writeChan <-chan tapi.Chattab
 }
 
 func (bot *TelegramBot) Worker(ctx context.Context, updateChan tapi.UpdatesChannel) {
+	const timespan = 1 * time.Hour
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -83,10 +86,24 @@ func (bot *TelegramBot) Worker(ctx context.Context, updateChan tapi.UpdatesChann
 				return
 			}
 
-			msgs := bot.HandleUpdate(update)
-			if msgs == nil {
+			var createdAt time.Time
+			if update.Message != nil {
+				createdAt = time.Unix(int64(update.Message.Date), 0).UTC()
+			} else if update.CallbackQuery != nil && update.CallbackQuery.Message != nil {
+				createdAt = time.Unix(int64(update.CallbackQuery.Message.Date), 0).UTC()
+			} else if update.EditedMessage != nil {
+				createdAt = time.Unix(int64(update.EditedMessage.Date), 0).UTC()
+			} else if update.ChannelPost != nil {
+				createdAt = time.Unix(int64(update.ChannelPost.Date), 0).UTC()
+			}
+			receivedAt := time.Now().UTC()
+
+			if !createdAt.IsZero() && receivedAt.Sub(createdAt) > timespan {
+				slog.Info("Dropped old update", "createdAt", createdAt, "receivedAt", receivedAt, "timespan", timespan)
 				continue
 			}
+
+			msgs := bot.HandleUpdate(update)
 
 			for _, msg := range msgs {
 				_, err := bot.BotAPI.Send(msg)

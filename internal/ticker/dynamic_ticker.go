@@ -7,41 +7,41 @@ import (
 
 var registrationTickerIntervalConfig = []TickerIntervalConfig{
 	{
-		Till:  parseTime("2025-08-06T09:00:00+05:00"),
+		Till:  parseTime("2025-12-17T09:00:00+05:00"),
 		Label: "First Priority for 4,5,6 UG",
 	},
 	{
-		Till:  parseTime("2025-08-06T11:00:00+05:00"),
+		Till:  parseTime("2025-12-17T11:00:00+05:00"),
 		Label: "First Priority for 3 UG",
 	},
 	{
-		Till:  parseTime("2025-08-06T13:00:00+05:00"),
+		Till:  parseTime("2025-12-17T13:00:00+05:00"),
 		Label: "First Priority for 2 UG",
 	},
 	{
-		Till:  parseTime("2025-08-13T09:00:00+05:00"),
+		Till:  parseTime("2025-12-17T15:00:00+05:00"),
 		Label: "First Priority for 1 UG",
 	},
 
 	{
-		Till:  parseTime("2025-08-14T09:00:00+05:00"),
+		Till:  parseTime("2025-12-18T09:00:00+05:00"),
 		Label: "Second Priority for 4,5,6 UG",
 	},
 	{
-		Till:  parseTime("2025-08-14T11:00:00+05:00"),
+		Till:  parseTime("2025-12-18T11:00:00+05:00"),
 		Label: "Second Priority for 3 UG",
 	},
 	{
-		Till:  parseTime("2025-08-14T13:00:00+05:00"),
+		Till:  parseTime("2025-12-18T13:00:00+05:00"),
 		Label: "Second Priority for 2 UG",
 	},
 	{
-		Till:  parseTime("2025-08-14T15:00:00+05:00"),
+		Till:  parseTime("2025-12-18T15:00:00+05:00"),
 		Label: "Second Priority for 1 UG",
 	},
 
 	{
-		Till:  parseTime("2025-08-14T15:00:00+05:00"),
+		Till:  parseTime("2025-12-19T15:00:00+05:00"),
 		Label: "Third Priority for All UG",
 	},
 }
